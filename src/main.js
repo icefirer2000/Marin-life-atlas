@@ -239,6 +239,16 @@ function appendSphericalTriangle(
     maxEdgeAngle <= MAX_SURFACE_EDGE_ANGLE ||
     depth >= MAX_SUBDIVISION_DEPTH
   ) {
+    const geometricNormal = b
+      .clone()
+      .sub(a)
+      .cross(c.clone().sub(a));
+    const triangleCenter = a.clone().add(b).add(c);
+
+    if (geometricNormal.dot(triangleCenter) < 0) {
+      [b, c] = [c, b];
+    }
+
     pushSphericalVertex(a, radius, positions, normals);
     pushSphericalVertex(b, radius, positions, normals);
     pushSphericalVertex(c, radius, positions, normals);
@@ -369,6 +379,7 @@ function createContinentSurface(continent, features) {
 
 const continentSurfaces = [];
 const continentAnchors = [];
+let continentSurfacesReady = false;
 
 for (const continent of continents) {
   const anchor = new THREE.Object3D();
@@ -387,25 +398,31 @@ for (const continent of continents) {
 }
 
 async function loadContinentSurfaces() {
-  const dataPaths = [
-    '/data/ne_110m_admin_0_countries.geojson',
-    '/public/data/ne_110m_admin_0_countries.geojson',
-  ];
-  let response;
+  pointerOutput.textContent = '正在生成大陆模型...';
 
-  for (const dataPath of dataPaths) {
-    const candidate = await fetch(dataPath);
-    if (candidate.ok) {
-      response = candidate;
-      break;
+  let geojson = globalThis.__CONTINENT_GEOJSON__;
+
+  if (!geojson) {
+    const dataPaths = [
+      '/data/ne_110m_admin_0_countries.geojson',
+      '/public/data/ne_110m_admin_0_countries.geojson',
+    ];
+    let response;
+
+    for (const dataPath of dataPaths) {
+      const candidate = await fetch(dataPath);
+      if (candidate.ok) {
+        response = candidate;
+        break;
+      }
     }
-  }
 
-  if (!response) {
-    throw new Error('Natural Earth 数据加载失败');
-  }
+    if (!response) {
+      throw new Error('Natural Earth 数据加载失败');
+    }
 
-  const geojson = await response.json();
+    geojson = await response.json();
+  }
 
   for (const continent of continents) {
     const features = geojson.features.filter(
@@ -416,11 +433,14 @@ async function loadContinentSurfaces() {
     continentSurfaces.push(surface);
     globeGroup.add(surface);
   }
+
+  continentSurfacesReady = true;
+  pointerOutput.textContent = '尚未选中球面';
 }
 
 loadContinentSurfaces().catch((error) => {
   console.error(error);
-  pointerOutput.textContent = '大陆数据加载失败';
+  pointerOutput.textContent = '大陆模型加载失败，请检查数据文件';
 });
 
 const starCount = 1600;
@@ -636,7 +656,7 @@ function updateContinentLabels() {
 
     continent.labelElement.classList.toggle(
       'is-visible',
-      isFrontFacing && isOnScreen
+      continentSurfacesReady && isFrontFacing && isOnScreen
     );
     continent.labelElement.style.left =
       `${(projectedPosition.x * 0.5 + 0.5) * window.innerWidth}px`;

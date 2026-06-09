@@ -5,21 +5,22 @@ import path from 'node:path';
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.resolve(scriptDirectory, '..');
 
-const [htmlSource, cssSource, mainSource] = await Promise.all([
+const [htmlSource, cssSource, mainSource, geojsonSource] = await Promise.all([
   readFile(path.join(projectDirectory, 'index.html'), 'utf8'),
   readFile(path.join(projectDirectory, 'src', 'style.css'), 'utf8'),
   readFile(path.join(projectDirectory, 'src', 'main.js'), 'utf8'),
+  readFile(
+    path.join(
+      projectDirectory,
+      'public',
+      'data',
+      'ne_110m_admin_0_countries.geojson'
+    ),
+    'utf8'
+  ),
 ]);
 
-const standaloneMain = mainSource.replace(
-    `const dataPaths = [
-    '/data/ne_110m_admin_0_countries.geojson',
-    '/public/data/ne_110m_admin_0_countries.geojson',
-  ];`,
-    `const dataPaths = [
-    'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson',
-  ];`
-  );
+const embeddedGeojson = geojsonSource.replaceAll('<', '\\u003c');
 
 const standaloneHtml = htmlSource
   .replace('    <link rel="stylesheet" href="/src/style.css" />\n', '')
@@ -29,7 +30,10 @@ const standaloneHtml = htmlSource
   )
   .replace(
     '    <script type="module" src="/src/main.js"></script>',
-    `    <script type="module">\n${standaloneMain}\n    </script>`
+    `    <script>
+      globalThis.__CONTINENT_GEOJSON__ = ${embeddedGeojson};
+    </script>
+    <script type="module">\n${mainSource}\n    </script>`
   );
 
 await writeFile(
