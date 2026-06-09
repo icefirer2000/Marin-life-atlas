@@ -1,277 +1,934 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海错图项目 v1.1</title>
-  <style>
-    * { box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-    body { color: #eff9ff; background: #020815; font-family: Inter, "Segoe UI", sans-serif; }
-    canvas { display: block; touch-action: none; cursor: grab; }
-    canvas:active { cursor: grabbing; }
-    .panel, .coordinates, .info-panel {
-      position: fixed; z-index: 3; border: 1px solid rgb(124 211 252 / 18%);
-      background: rgb(3 15 30 / 76%); backdrop-filter: blur(18px);
-      box-shadow: 0 18px 60px rgb(0 0 0 / 30%);
-    }
-    .panel { top: 24px; left: 24px; width: min(360px, calc(100vw - 48px)); padding: 22px; border-radius: 20px; }
-    .eyebrow { margin: 0 0 8px; color: #66d9ff; font-size: .72rem; font-weight: 700; letter-spacing: .18em; }
-    h1, h2 { margin: 0; letter-spacing: -.04em; }
-    h1 { font-size: 2.4rem; }
-    h2 { font-size: 2rem; }
-    .description, .summary { color: #b7cddd; font-size: .92rem; line-height: 1.65; }
-    .description { margin: 12px 0 20px; }
-    .summary { margin: 12px 0 20px; }
-    .actions { display: flex; gap: 10px; }
-    button { min-height: 40px; padding: 0 15px; border: 1px solid rgb(125 211 252 / 22%); border-radius: 11px; color: #eaf9ff; background: rgb(9 67 96 / 62%); cursor: pointer; }
-    button:hover { background: rgb(12 98 137 / 80%); }
-    .coordinates { right: 24px; bottom: 24px; display: grid; gap: 4px; min-width: 220px; padding: 14px 17px; border-radius: 14px; pointer-events: none; }
-    .coordinates span, dt { color: #7dd3fc; font-size: .7rem; font-weight: 700; letter-spacing: .08em; }
-    .coordinates strong { font-family: "Cascadia Code", Consolas, monospace; font-size: .85rem; font-weight: 500; }
-    .labels { position: fixed; z-index: 2; inset: 0; pointer-events: none; }
-    .label { position: absolute; padding: 5px 9px; border: 1px solid rgb(103 232 249 / 32%); border-radius: 999px; background: rgb(3 23 38 / 82%); font-size: .73rem; font-weight: 700; opacity: 0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity 120ms ease; white-space: nowrap; }
-    .label.visible { opacity: 1; }
-    .info-panel { top: 24px; right: 24px; width: min(360px, calc(100vw - 48px)); padding: 24px; border-radius: 20px; opacity: 0; pointer-events: none; transform: translateX(24px); transition: 180ms ease; }
-    .info-panel.open { opacity: 1; pointer-events: auto; transform: translateX(0); }
-    .close { position: absolute; top: 14px; right: 14px; min-width: 36px; min-height: 36px; padding: 0; font-size: 1.35rem; }
-    dl { display: grid; gap: 12px; margin: 0; }
-    dl div { padding: 12px 14px; border: 1px solid rgb(125 211 252 / 12%); border-radius: 12px; background: rgb(10 48 70 / 36%); }
-    dd { margin: 4px 0 0; line-height: 1.5; }
-    @media (max-width: 640px) {
-      .panel { top: 14px; left: 14px; width: calc(100vw - 28px); padding: 17px; }
-      .coordinates { right: 14px; bottom: 14px; left: 14px; }
-      .info-panel { top: auto; right: 14px; bottom: 86px; left: 14px; width: auto; max-height: 55vh; overflow: auto; }
-    }
-  </style>
-  <script type="importmap">
-    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js"}}
-  </script>
-</head>
-<body>
-  <section class="panel">
-    <p class="eyebrow">THREE.JS LAB</p>
-    <h1>海错图</h1>
-    <p class="description">拖动旋转地球，滚轮缩放。点击大陆标记查看基本信息。</p>
-    <div class="actions">
-      <button id="toggle" type="button">暂停自转</button>
-      <button id="reset" type="button">复位视角</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="使用 Three.js 与 Natural Earth 数据构建的可交互三维地球"
+    />
+    <title>海错图项目 v1.3</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js"
+        }
+      }
+    </script>
+    <style>
+:root {
+  color: #eff9ff;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app,
+#scene {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #020815;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+canvas:active {
+  cursor: grabbing;
+}
+
+.panel,
+.coordinates {
+  position: fixed;
+  z-index: 1;
+  border: 1px solid rgb(124 211 252 / 16%);
+  background: rgb(3 15 30 / 66%);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 28%);
+  backdrop-filter: blur(18px);
+}
+
+.panel {
+  top: 24px;
+  left: 24px;
+  width: min(340px, calc(100vw - 48px));
+  padding: 22px;
+  border-radius: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #66d9ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 2.7rem);
+  letter-spacing: -0.045em;
+}
+
+.description {
+  margin: 12px 0 20px;
+  color: #b7cddd;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid rgb(125 211 252 / 22%);
+  border-radius: 11px;
+  color: #eaf9ff;
+  background: rgb(9 67 96 / 62%);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+button:hover {
+  background: rgb(12 98 137 / 80%);
+  transform: translateY(-1px);
+}
+
+button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+.coordinates {
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 14px 17px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.coordinates span {
+  color: #7dd3fc;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.coordinates strong {
+  color: #e8f8ff;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.continent-labels {
+  position: fixed;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.continent-label {
+  position: absolute;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 28%);
+  border-radius: 999px;
+  color: #ecfeff;
+  background: rgb(3 23 38 / 86%);
+  box-shadow: 0 6px 22px rgb(0 0 0 / 28%);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 12px));
+  transition: opacity 120ms ease;
+  white-space: nowrap;
+}
+
+.continent-label.is-visible {
+  opacity: 1;
+}
+
+.continent-panel {
+  position: fixed;
+  z-index: 3;
+  top: 24px;
+  right: 24px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 24px;
+  border: 1px solid rgb(124 211 252 / 20%);
+  border-radius: 20px;
+  background: rgb(3 15 30 / 88%);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 42%);
+  backdrop-filter: blur(20px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(24px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.continent-panel.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.continent-panel h2 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.continent-panel > p:not(.eyebrow) {
+  margin: 12px 0 20px;
+  color: #bdd2df;
+  line-height: 1.7;
+}
+
+.continent-panel__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 1.35rem;
+}
+
+.continent-facts {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.continent-facts div {
+  padding: 12px 14px;
+  border: 1px solid rgb(125 211 252 / 12%);
+  border-radius: 12px;
+  background: rgb(10 48 70 / 36%);
+}
+
+.continent-facts dt {
+  margin-bottom: 4px;
+  color: #67e8f9;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.continent-facts dd {
+  margin: 0;
+  color: #e9f7fc;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    top: 14px;
+    left: 14px;
+    width: calc(100vw - 28px);
+    padding: 17px;
+  }
+
+  .description {
+    margin-bottom: 15px;
+  }
+
+  .coordinates {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+    min-width: 0;
+  }
+
+  .continent-panel {
+    top: auto;
+    right: 14px;
+    bottom: 86px;
+    left: 14px;
+    width: auto;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="panel">
+        <p class="eyebrow">THREE.JS LAB</p>
+        <h1>海错图</h1>
+        <p class="description">
+          拖动旋转地球，滚轮缩放。悬停或点击彩色大陆表面进行交互。
+        </p>
+        <div class="actions">
+          <button id="toggle-rotation" type="button">暂停自转</button>
+          <button id="reset-camera" type="button">复位视角</button>
+        </div>
+      </div>
+
+      <div class="coordinates" aria-live="polite">
+        <span>指针位置</span>
+        <strong id="pointer-position">尚未选中球面</strong>
+      </div>
+
+      <div id="continent-labels" class="continent-labels"></div>
+
+      <aside
+        id="continent-panel"
+        class="continent-panel"
+        aria-live="polite"
+        aria-hidden="true"
+      >
+        <button
+          id="close-continent-panel"
+          class="continent-panel__close"
+          type="button"
+          aria-label="关闭大陆信息"
+        >
+          ×
+        </button>
+        <p class="eyebrow">CONTINENT PROFILE</p>
+        <h2 id="continent-name">大陆名称</h2>
+        <p id="continent-summary"></p>
+        <dl class="continent-facts">
+          <div>
+            <dt>面积</dt>
+            <dd id="continent-area"></dd>
+          </div>
+          <div>
+            <dt>人口</dt>
+            <dd id="continent-population"></dd>
+          </div>
+          <div>
+            <dt>主要特征</dt>
+            <dd id="continent-feature"></dd>
+          </div>
+        </dl>
+      </aside>
+
+      <div id="scene" aria-label="可交互的三维地球与大陆表面"></div>
     </div>
-  </section>
-  <div class="coordinates">
-    <span>指针位置</span>
-    <strong id="position">尚未选中球面</strong>
-  </div>
-  <div id="labels" class="labels"></div>
-  <aside id="info" class="info-panel" aria-hidden="true">
-    <button id="close" class="close" type="button" aria-label="关闭大陆信息">×</button>
-    <p class="eyebrow">CONTINENT PROFILE</p>
-    <h2 id="name"></h2>
-    <p id="summary" class="summary"></p>
-    <dl>
-      <div><dt>面积</dt><dd id="area"></dd></div>
-      <div><dt>人口</dt><dd id="population"></dd></div>
-      <div><dt>主要特征</dt><dd id="feature"></dd></div>
-    </dl>
-  </aside>
 
-  <script type="module">
-    import * as THREE from 'three';
+    <script type="module">
+import * as THREE from 'three';
 
-    const continents = [
-      ['亚洲', 38, 90, '约 4,458 万平方千米', '约 48 亿', '面积与人口均居世界第一，地形和气候类型极为多样。', '亚洲横跨北半球和东半球的大部分地区，从北极沿岸延伸至赤道附近，是文明、生态与地貌多样性最丰富的大陆。'],
-      ['非洲', 4, 21, '约 3,037 万平方千米', '约 15 亿', '赤道横贯中部，拥有撒哈拉沙漠、热带草原和雨林。', '非洲以高原地形为主，生物多样性突出，也是现代人类演化研究中的关键区域。'],
-      ['欧洲', 52, 15, '约 1,018 万平方千米', '约 7.4 亿', '海岸线曲折，温带气候广布，城市化程度较高。', '欧洲位于欧亚大陆西部，由众多半岛、岛屿和平原构成，在世界近现代科学与工业发展中影响深远。'],
-      ['北美洲', 46, -105, '约 2,471 万平方千米', '约 6.1 亿', '西部高山、中央平原与东部高地南北纵列分布。', '北美洲北接北冰洋，东西分别临大西洋和太平洋，覆盖寒带、温带与热带生态系统。'],
-      ['南美洲', -16, -60, '约 1,784 万平方千米', '约 4.4 亿', '拥有安第斯山脉和世界流域面积最大的亚马孙河。', '南美洲大部分位于南半球，亚马孙雨林、安第斯高地和南部草原共同构成显著的生态梯度。'],
-      ['大洋洲', -25, 135, '约 852 万平方千米', '约 4,600 万', '由澳大利亚大陆、新西兰及太平洋众多岛屿组成。', '大洋洲陆地分散、海洋面积广阔，拥有大量特有物种，并分布着重要的珊瑚礁生态系统。'],
-      ['南极洲', -78, 20, '约 1,420 万平方千米', '无常住人口', '绝大部分被冰盖覆盖，是全球气候与冰芯研究重地。', '南极洲环绕南极点，是平均海拔最高、最寒冷和最干燥的大陆，主要用于和平科学研究。']
-    ].map(([name, latitude, longitude, area, population, feature, summary]) =>
-      ({ name, latitude, longitude, area, population, feature, summary })
-    );
+const container = document.querySelector('#scene');
+const toggleButton = document.querySelector('#toggle-rotation');
+const resetButton = document.querySelector('#reset-camera');
+const pointerOutput = document.querySelector('#pointer-position');
+const labelsContainer = document.querySelector('#continent-labels');
+const continentPanel = document.querySelector('#continent-panel');
+const closePanelButton = document.querySelector('#close-continent-panel');
+const continentName = document.querySelector('#continent-name');
+const continentSummary = document.querySelector('#continent-summary');
+const continentArea = document.querySelector('#continent-area');
+const continentPopulation = document.querySelector('#continent-population');
+const continentFeature = document.querySelector('#continent-feature');
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020815);
-    scene.fog = new THREE.FogExp2(0x020815, 0.035);
-    const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-    camera.position.set(0, 1.2, 5);
+const continents = [
+  {
+    id: 'asia',
+    sourceName: 'Asia',
+    name: '亚洲',
+    color: 0xff8a5b,
+    latitude: 38,
+    longitude: 90,
+    area: '约 4,458 万平方千米',
+    population: '约 48 亿',
+    feature: '面积与人口均居世界第一，地形和气候类型极为多样。',
+    summary:
+      '亚洲横跨北半球和东半球的大部分地区，从北极沿岸延伸至赤道附近，是文明、生态与地貌多样性最丰富的大陆。',
+  },
+  {
+    id: 'africa',
+    sourceName: 'Africa',
+    name: '非洲',
+    color: 0xffc857,
+    latitude: 4,
+    longitude: 21,
+    area: '约 3,037 万平方千米',
+    population: '约 15 亿',
+    feature: '赤道横贯中部，拥有撒哈拉沙漠、热带草原和雨林。',
+    summary:
+      '非洲以高原地形为主，生物多样性突出，也是现代人类演化研究中的关键区域。',
+  },
+  {
+    id: 'europe',
+    sourceName: 'Europe',
+    name: '欧洲',
+    color: 0xb59cff,
+    latitude: 52,
+    longitude: 15,
+    area: '约 1,018 万平方千米',
+    population: '约 7.4 亿',
+    feature: '海岸线曲折，温带气候广布，城市化程度较高。',
+    summary:
+      '欧洲位于欧亚大陆西部，由众多半岛、岛屿和平原构成，在世界近现代科学与工业发展中影响深远。',
+  },
+  {
+    id: 'north-america',
+    sourceName: 'North America',
+    name: '北美洲',
+    color: 0x5bd6a2,
+    latitude: 46,
+    longitude: -105,
+    area: '约 2,471 万平方千米',
+    population: '约 6.1 亿',
+    feature: '西部高山、中央平原与东部高地南北纵列分布。',
+    summary:
+      '北美洲北接北冰洋，东西分别临大西洋和太平洋，覆盖寒带、温带与热带生态系统。',
+  },
+  {
+    id: 'south-america',
+    sourceName: 'South America',
+    name: '南美洲',
+    color: 0x65c7ff,
+    latitude: -16,
+    longitude: -60,
+    area: '约 1,784 万平方千米',
+    population: '约 4.4 亿',
+    feature: '拥有安第斯山脉和世界流域面积最大的亚马孙河。',
+    summary:
+      '南美洲大部分位于南半球，亚马孙雨林、安第斯高地和南部草原共同构成显著的生态梯度。',
+  },
+  {
+    id: 'oceania',
+    sourceName: 'Oceania',
+    name: '大洋洲',
+    color: 0xff77a8,
+    latitude: -25,
+    longitude: 135,
+    area: '约 852 万平方千米',
+    population: '约 4,600 万',
+    feature: '由澳大利亚大陆、新西兰及太平洋众多岛屿组成。',
+    summary:
+      '大洋洲陆地分散、海洋面积广阔，拥有大量特有物种，并分布着重要的珊瑚礁生态系统。',
+  },
+  {
+    id: 'antarctica',
+    sourceName: 'Antarctica',
+    name: '南极洲',
+    color: 0x8edcff,
+    latitude: -78,
+    longitude: 20,
+    area: '约 1,420 万平方千米',
+    population: '无常住人口',
+    feature: '绝大部分被冰盖覆盖，是全球气候与冰芯研究重地。',
+    summary:
+      '南极洲环绕南极点，是平均海拔最高、最寒冷和最干燥的大陆，主要用于和平科学研究。',
+  },
+];
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
-    document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020815);
+scene.fog = new THREE.FogExp2(0x020815, 0.035);
 
-    scene.add(new THREE.AmbientLight(0x243b55, 0.5));
-    const sun = new THREE.DirectionalLight(0xfff4dc, 3.8);
-    sun.position.set(5, 2.5, 4);
-    sun.target.position.set(0, 0, 0);
-    scene.add(sun, sun.target);
-    const rim = new THREE.DirectionalLight(0x2f9dff, 0.75);
-    rim.position.set(-4, 1, -3);
-    scene.add(rim);
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
+camera.position.set(0, 1.2, 5);
+camera.lookAt(0, 0, 0);
 
-    const globe = new THREE.Group();
-    scene.add(globe);
-    const texture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const earth = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 96, 64),
-      new THREE.MeshPhysicalMaterial({ map: texture, roughness: .68, clearcoat: .18, clearcoatRoughness: .45 })
-    );
-    globe.add(earth);
-    globe.add(new THREE.LineSegments(
-      new THREE.WireframeGeometry(new THREE.SphereGeometry(1.505, 32, 20)),
-      new THREE.LineBasicMaterial({ color: 0x61dafb, transparent: true, opacity: .06 })
-    ));
-    globe.add(new THREE.Mesh(
-      new THREE.SphereGeometry(1.57, 64, 32),
-      new THREE.MeshBasicMaterial({ color: 0x2bbcff, side: THREE.BackSide, transparent: true, opacity: .09, blending: THREE.AdditiveBlending })
-    ));
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: 'high-performance',
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+container.appendChild(renderer.domElement);
 
-    function latLon(latitude, longitude, radius) {
-      const phi = THREE.MathUtils.degToRad(90 - latitude);
-      const theta = THREE.MathUtils.degToRad(longitude + 180);
-      return new THREE.Vector3(
-        -radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.cos(phi),
-        radius * Math.sin(phi) * Math.sin(theta)
-      );
+scene.add(new THREE.AmbientLight(0x243b55, 0.5));
+
+const sunLight = new THREE.DirectionalLight(0xfff4dc, 3.8);
+sunLight.position.set(5, 2.5, 4);
+sunLight.target.position.set(0, 0, 0);
+scene.add(sunLight, sunLight.target);
+
+const rimLight = new THREE.DirectionalLight(0x2f9dff, 0.75);
+rimLight.position.set(-4, 1, -3);
+scene.add(rimLight);
+
+const globeGroup = new THREE.Group();
+scene.add(globeGroup);
+
+const earthTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+earthTexture.colorSpace = THREE.SRGBColorSpace;
+earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const earth = new THREE.Mesh(
+  new THREE.SphereGeometry(1.5, 96, 64),
+  new THREE.MeshPhysicalMaterial({
+    map: earthTexture,
+    color: 0xffffff,
+    roughness: 0.72,
+    metalness: 0,
+    clearcoat: 0.14,
+    clearcoatRoughness: 0.48,
+  })
+);
+globeGroup.add(earth);
+
+const grid = new THREE.LineSegments(
+  new THREE.WireframeGeometry(new THREE.SphereGeometry(1.505, 32, 20)),
+  new THREE.LineBasicMaterial({
+    color: 0x61dafb,
+    transparent: true,
+    opacity: 0.035,
+  })
+);
+globeGroup.add(grid);
+
+const atmosphere = new THREE.Mesh(
+  new THREE.SphereGeometry(1.57, 64, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x2bbcff,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0.09,
+    blending: THREE.AdditiveBlending,
+  })
+);
+globeGroup.add(atmosphere);
+
+function latLonToVector3(latitude, longitude, radius) {
+  const phi = THREE.MathUtils.degToRad(90 - latitude);
+  const theta = THREE.MathUtils.degToRad(longitude + 180);
+
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+function cleanAndUnwrapRing(ring, referenceLongitude = ring[0][0]) {
+  const cleaned = ring.slice(0, -1);
+  let previousLongitude = referenceLongitude;
+
+  return cleaned.map(([rawLongitude, latitude], index) => {
+    let longitude = rawLongitude;
+
+    if (index > 0) {
+      while (longitude - previousLongitude > 180) longitude -= 360;
+      while (longitude - previousLongitude < -180) longitude += 360;
     }
 
-    const labels = document.querySelector('#labels');
-    const markerGeometry = new THREE.SphereGeometry(.04, 18, 18);
-    const markers = continents.map((continent) => {
-      const marker = new THREE.Mesh(
-        markerGeometry,
-        new THREE.MeshStandardMaterial({ color: 0x5ee8ff, emissive: 0x0c9ec4, emissiveIntensity: 1.2 })
-      );
-      marker.position.copy(latLon(continent.latitude, continent.longitude, 1.54));
-      marker.userData.continent = continent;
-      globe.add(marker);
-      const label = document.createElement('span');
-      label.className = 'label';
-      label.textContent = continent.name;
-      labels.appendChild(label);
-      continent.label = label;
-      return marker;
-    });
+    previousLongitude = longitude;
+    return new THREE.Vector2(longitude, latitude);
+  });
+}
 
-    const info = document.querySelector('#info');
-    const openInfo = (c) => {
-      document.querySelector('#name').textContent = c.name;
-      document.querySelector('#summary').textContent = c.summary;
-      document.querySelector('#area').textContent = c.area;
-      document.querySelector('#population').textContent = c.population;
-      document.querySelector('#feature').textContent = c.feature;
-      info.classList.add('open');
-      info.setAttribute('aria-hidden', 'false');
-    };
-    const closeInfo = () => {
-      info.classList.remove('open');
-      info.setAttribute('aria-hidden', 'true');
-    };
-    document.querySelector('#close').addEventListener('click', closeInfo);
+function appendPolygon(polygon, positions, indices, radius) {
+  if (!polygon[0] || polygon[0].length < 4) return;
 
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    const output = document.querySelector('#position');
-    const drag = { active: false, pointerId: null, x: 0, y: 0, distance: 0 };
+  const contour = cleanAndUnwrapRing(polygon[0]);
+  const referenceLongitude = contour[0].x;
+  const holes = polygon
+    .slice(1)
+    .filter((ring) => ring.length >= 4)
+    .map((ring) => cleanAndUnwrapRing(ring, referenceLongitude));
+  const faces = THREE.ShapeUtils.triangulateShape(contour, holes);
+  const vertices = contour.concat(...holes);
+  const vertexOffset = positions.length / 3;
 
-    renderer.domElement.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0) return;
-      Object.assign(drag, { active: true, pointerId: event.pointerId, x: event.clientX, y: event.clientY, distance: 0 });
-      renderer.domElement.setPointerCapture(event.pointerId);
-    });
+  for (const vertex of vertices) {
+    const position = latLonToVector3(vertex.y, vertex.x, radius);
+    positions.push(position.x, position.y, position.z);
+  }
 
-    renderer.domElement.addEventListener('pointermove', (event) => {
-      if (drag.active && event.pointerId === drag.pointerId) {
-        const dx = event.clientX - drag.x;
-        const dy = event.clientY - drag.y;
-        drag.distance += Math.hypot(dx, dy);
-        globe.rotation.y += dx * .006;
-        globe.rotation.x = THREE.MathUtils.clamp(globe.rotation.x + dy * .006, -Math.PI / 2, Math.PI / 2);
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-      }
-      pointer.x = event.clientX / innerWidth * 2 - 1;
-      pointer.y = -(event.clientY / innerHeight) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(earth)[0];
-      if (!hit) return void (output.textContent = '尚未选中球面');
-      const point = globe.worldToLocal(hit.point.clone()).normalize();
-      const lat = THREE.MathUtils.radToDeg(Math.asin(point.y));
-      const lon = THREE.MathUtils.radToDeg(Math.atan2(point.z, -point.x));
-      output.textContent = `${lat.toFixed(2)} deg, ${lon.toFixed(2)} deg`;
-    });
+  for (const face of faces) {
+    indices.push(
+      vertexOffset + face[0],
+      vertexOffset + face[1],
+      vertexOffset + face[2]
+    );
+  }
+}
 
-    const stopDrag = (event) => {
-      if (event.pointerId !== drag.pointerId) return;
-      if (drag.distance < 5) {
-        pointer.x = event.clientX / innerWidth * 2 - 1;
-        pointer.y = -(event.clientY / innerHeight) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hit = raycaster.intersectObjects(markers)[0];
-        if (hit) openInfo(hit.object.userData.continent);
-      }
-      drag.active = false;
-      drag.pointerId = null;
-    };
-    renderer.domElement.addEventListener('pointerup', stopDrag);
-    renderer.domElement.addEventListener('pointercancel', stopDrag);
-    renderer.domElement.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      camera.position.setLength(THREE.MathUtils.clamp(camera.position.length() * Math.exp(event.deltaY * .001), 2.3, 11));
-      camera.lookAt(0, 0, 0);
-    }, { passive: false });
+function createContinentSurface(continent, features) {
+  const positions = [];
+  const indices = [];
 
-    let rotating = true;
-    const toggle = document.querySelector('#toggle');
-    toggle.addEventListener('click', () => {
-      rotating = !rotating;
-      toggle.textContent = rotating ? '暂停自转' : '继续自转';
-    });
-    document.querySelector('#reset').addEventListener('click', () => {
-      camera.position.set(0, 1.2, 5);
-      camera.lookAt(0, 0, 0);
-      globe.rotation.set(0, 0, 0);
-      closeInfo();
-    });
+  for (const feature of features) {
+    const { geometry } = feature;
+    if (!geometry) continue;
 
-    const projected = new THREE.Vector3();
-    const world = new THREE.Vector3();
-    const view = new THREE.Vector3();
-    function updateLabels() {
-      camera.getWorldDirection(view).negate();
-      markers.forEach((marker) => {
-        marker.getWorldPosition(world);
-        const visible = world.clone().normalize().dot(view) > .12;
-        projected.copy(world).project(camera);
-        const onScreen = Math.abs(projected.x) <= 1.05 && Math.abs(projected.y) <= 1.05;
-        const label = marker.userData.continent.label;
-        label.classList.toggle('visible', visible && onScreen);
-        label.style.left = `${(projected.x * .5 + .5) * innerWidth}px`;
-        label.style.top = `${(-projected.y * .5 + .5) * innerHeight}px`;
-      });
+    const polygons =
+      geometry.type === 'Polygon'
+        ? [geometry.coordinates]
+        : geometry.type === 'MultiPolygon'
+          ? geometry.coordinates
+          : [];
+
+    for (const polygon of polygons) {
+      appendPolygon(polygon, positions, indices, 1.512);
     }
+  }
 
-    const clock = new THREE.Clock();
-    renderer.setAnimationLoop(() => {
-      const delta = Math.min(clock.getDelta(), .05);
-      if (rotating) globe.rotation.y += delta * .09;
-      updateLabels();
-      renderer.render(scene, camera);
-    });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
 
-    addEventListener('resize', () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    });
-  </script>
-</body>
+  const material = new THREE.MeshStandardMaterial({
+    color: continent.color,
+    emissive: continent.color,
+    emissiveIntensity: 0.12,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.72,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.continent = continent;
+  mesh.userData.baseEmissiveIntensity = material.emissiveIntensity;
+  return mesh;
+}
+
+const continentSurfaces = [];
+const continentAnchors = [];
+
+for (const continent of continents) {
+  const anchor = new THREE.Object3D();
+  anchor.position.copy(
+    latLonToVector3(continent.latitude, continent.longitude, 1.54)
+  );
+  globeGroup.add(anchor);
+  continentAnchors.push(anchor);
+
+  const label = document.createElement('span');
+  label.className = 'continent-label';
+  label.textContent = continent.name;
+  labelsContainer.appendChild(label);
+  continent.labelElement = label;
+  continent.anchor = anchor;
+}
+
+async function loadContinentSurfaces() {
+  const dataPaths = [
+    'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson',
+  ];
+  let response;
+
+  for (const dataPath of dataPaths) {
+    const candidate = await fetch(dataPath);
+    if (candidate.ok) {
+      response = candidate;
+      break;
+    }
+  }
+
+  if (!response) {
+    throw new Error('Natural Earth 数据加载失败');
+  }
+
+  const geojson = await response.json();
+
+  for (const continent of continents) {
+    const features = geojson.features.filter(
+      (feature) =>
+        feature.properties?.CONTINENT === continent.sourceName
+    );
+    const surface = createContinentSurface(continent, features);
+    continentSurfaces.push(surface);
+    globeGroup.add(surface);
+  }
+}
+
+loadContinentSurfaces().catch((error) => {
+  console.error(error);
+  pointerOutput.textContent = '大陆数据加载失败';
+});
+
+const starCount = 1600;
+const starPositions = new Float32Array(starCount * 3);
+
+for (let index = 0; index < starCount; index += 1) {
+  const radius = 12 + Math.random() * 28;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+
+  starPositions[index * 3] = radius * Math.sin(phi) * Math.cos(theta);
+  starPositions[index * 3 + 1] = radius * Math.cos(phi);
+  starPositions[index * 3 + 2] =
+    radius * Math.sin(phi) * Math.sin(theta);
+}
+
+const starGeometry = new THREE.BufferGeometry();
+starGeometry.setAttribute(
+  'position',
+  new THREE.BufferAttribute(starPositions, 3)
+);
+const stars = new THREE.Points(
+  starGeometry,
+  new THREE.PointsMaterial({
+    color: 0x9ad9ff,
+    size: 0.035,
+    transparent: true,
+    opacity: 0.7,
+    sizeAttenuation: true,
+  })
+);
+scene.add(stars);
+
+function openContinentPanel(continent) {
+  continentName.textContent = continent.name;
+  continentSummary.textContent = continent.summary;
+  continentArea.textContent = continent.area;
+  continentPopulation.textContent = continent.population;
+  continentFeature.textContent = continent.feature;
+  continentPanel.classList.add('is-open');
+  continentPanel.setAttribute('aria-hidden', 'false');
+}
+
+function closeContinentPanel() {
+  continentPanel.classList.remove('is-open');
+  continentPanel.setAttribute('aria-hidden', 'true');
+}
+
+closePanelButton.addEventListener('click', closeContinentPanel);
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragState = {
+  active: false,
+  pointerId: null,
+  previousX: 0,
+  previousY: 0,
+  totalDistance: 0,
+};
+let hoveredSurface = null;
+
+function setPointerFromEvent(event) {
+  const bounds = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+  pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+}
+
+function updateCoordinateOutput() {
+  const hit = raycaster.intersectObject(earth)[0];
+
+  if (!hit) {
+    pointerOutput.textContent = '尚未选中球面';
+    return;
+  }
+
+  const point = globeGroup.worldToLocal(hit.point.clone()).normalize();
+  const latitude = THREE.MathUtils.radToDeg(Math.asin(point.y));
+  const longitude = THREE.MathUtils.radToDeg(
+    Math.atan2(point.z, -point.x)
+  );
+  pointerOutput.textContent =
+    `${latitude.toFixed(2)} deg, ${longitude.toFixed(2)} deg`;
+}
+
+function updateSurfaceHover() {
+  const hit = raycaster.intersectObjects(continentSurfaces)[0];
+  const nextSurface = hit?.object ?? null;
+
+  if (hoveredSurface === nextSurface) return;
+
+  if (hoveredSurface) {
+    hoveredSurface.material.emissiveIntensity =
+      hoveredSurface.userData.baseEmissiveIntensity;
+    hoveredSurface.material.opacity = 0.72;
+  }
+
+  hoveredSurface = nextSurface;
+
+  if (hoveredSurface) {
+    hoveredSurface.material.emissiveIntensity = 0.48;
+    hoveredSurface.material.opacity = 0.92;
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    renderer.domElement.style.cursor = dragState.active ? 'grabbing' : 'grab';
+  }
+}
+
+renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+
+  dragState.active = true;
+  dragState.pointerId = event.pointerId;
+  dragState.previousX = event.clientX;
+  dragState.previousY = event.clientY;
+  dragState.totalDistance = 0;
+  renderer.domElement.style.cursor = 'grabbing';
+  renderer.domElement.setPointerCapture(event.pointerId);
+});
+
+renderer.domElement.addEventListener('pointermove', (event) => {
+  if (dragState.active && event.pointerId === dragState.pointerId) {
+    const deltaX = event.clientX - dragState.previousX;
+    const deltaY = event.clientY - dragState.previousY;
+    dragState.totalDistance += Math.hypot(deltaX, deltaY);
+
+    globeGroup.rotation.y += deltaX * 0.006;
+    globeGroup.rotation.x = THREE.MathUtils.clamp(
+      globeGroup.rotation.x + deltaY * 0.006,
+      -Math.PI / 2,
+      Math.PI / 2
+    );
+
+    dragState.previousX = event.clientX;
+    dragState.previousY = event.clientY;
+  }
+
+  setPointerFromEvent(event);
+  updateCoordinateOutput();
+  updateSurfaceHover();
+});
+
+function stopDragging(event) {
+  if (event.pointerId !== dragState.pointerId) return;
+
+  if (dragState.totalDistance < 5) {
+    setPointerFromEvent(event);
+    const surfaceHit = raycaster.intersectObjects(continentSurfaces)[0];
+
+    if (surfaceHit) {
+      openContinentPanel(surfaceHit.object.userData.continent);
+    }
+  }
+
+  dragState.active = false;
+  dragState.pointerId = null;
+  renderer.domElement.style.cursor = hoveredSurface ? 'pointer' : 'grab';
+}
+
+renderer.domElement.addEventListener('pointerup', stopDragging);
+renderer.domElement.addEventListener('pointercancel', stopDragging);
+
+renderer.domElement.addEventListener(
+  'wheel',
+  (event) => {
+    event.preventDefault();
+    const nextDistance = THREE.MathUtils.clamp(
+      camera.position.length() * Math.exp(event.deltaY * 0.001),
+      2.3,
+      11
+    );
+    camera.position.setLength(nextDistance);
+    camera.lookAt(0, 0, 0);
+  },
+  { passive: false }
+);
+
+let isAutoRotating = true;
+
+toggleButton.addEventListener('click', () => {
+  isAutoRotating = !isAutoRotating;
+  toggleButton.textContent = isAutoRotating ? '暂停自转' : '继续自转';
+});
+
+resetButton.addEventListener('click', () => {
+  camera.position.set(0, 1.2, 5);
+  camera.lookAt(0, 0, 0);
+  globeGroup.rotation.set(0, 0, 0);
+  closeContinentPanel();
+});
+
+const clock = new THREE.Clock();
+const projectedPosition = new THREE.Vector3();
+const worldPosition = new THREE.Vector3();
+const worldNormal = new THREE.Vector3();
+const cameraDirection = new THREE.Vector3();
+
+function updateContinentLabels() {
+  camera.getWorldDirection(cameraDirection).negate();
+
+  for (let index = 0; index < continents.length; index += 1) {
+    const continent = continents[index];
+    continentAnchors[index].getWorldPosition(worldPosition);
+    worldNormal.copy(worldPosition).normalize();
+
+    const isFrontFacing = worldNormal.dot(cameraDirection) > 0.12;
+    projectedPosition.copy(worldPosition).project(camera);
+    const isOnScreen =
+      Math.abs(projectedPosition.x) <= 1.05 &&
+      Math.abs(projectedPosition.y) <= 1.05;
+
+    continent.labelElement.classList.toggle(
+      'is-visible',
+      isFrontFacing && isOnScreen
+    );
+    continent.labelElement.style.left =
+      `${(projectedPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
+    continent.labelElement.style.top =
+      `${(-projectedPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
+  }
+}
+
+renderer.setAnimationLoop(() => {
+  const deltaTime = Math.min(clock.getDelta(), 0.05);
+
+  if (isAutoRotating) {
+    globeGroup.rotation.y += deltaTime * 0.09;
+  }
+
+  stars.rotation.y += deltaTime * 0.003;
+  updateContinentLabels();
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+    </script>
+  </body>
 </html>

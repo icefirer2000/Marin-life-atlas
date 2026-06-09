@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import './style.css';
 
 const container = document.querySelector('#scene');
 const toggleButton = document.querySelector('#toggle-rotation');
@@ -7,16 +6,106 @@ const resetButton = document.querySelector('#reset-camera');
 const pointerOutput = document.querySelector('#pointer-position');
 const labelsContainer = document.querySelector('#continent-labels');
 const continentPanel = document.querySelector('#continent-panel');
-const closeContinentPanelButton = document.querySelector(
-  '#close-continent-panel'
-);
+const closePanelButton = document.querySelector('#close-continent-panel');
 const continentName = document.querySelector('#continent-name');
 const continentSummary = document.querySelector('#continent-summary');
 const continentArea = document.querySelector('#continent-area');
-const continentPopulation = document.querySelector(
-  '#continent-population'
-);
+const continentPopulation = document.querySelector('#continent-population');
 const continentFeature = document.querySelector('#continent-feature');
+
+const continents = [
+  {
+    id: 'asia',
+    sourceName: 'Asia',
+    name: '亚洲',
+    color: 0xff8a5b,
+    latitude: 38,
+    longitude: 90,
+    area: '约 4,458 万平方千米',
+    population: '约 48 亿',
+    feature: '面积与人口均居世界第一，地形和气候类型极为多样。',
+    summary:
+      '亚洲横跨北半球和东半球的大部分地区，从北极沿岸延伸至赤道附近，是文明、生态与地貌多样性最丰富的大陆。',
+  },
+  {
+    id: 'africa',
+    sourceName: 'Africa',
+    name: '非洲',
+    color: 0xffc857,
+    latitude: 4,
+    longitude: 21,
+    area: '约 3,037 万平方千米',
+    population: '约 15 亿',
+    feature: '赤道横贯中部，拥有撒哈拉沙漠、热带草原和雨林。',
+    summary:
+      '非洲以高原地形为主，生物多样性突出，也是现代人类演化研究中的关键区域。',
+  },
+  {
+    id: 'europe',
+    sourceName: 'Europe',
+    name: '欧洲',
+    color: 0xb59cff,
+    latitude: 52,
+    longitude: 15,
+    area: '约 1,018 万平方千米',
+    population: '约 7.4 亿',
+    feature: '海岸线曲折，温带气候广布，城市化程度较高。',
+    summary:
+      '欧洲位于欧亚大陆西部，由众多半岛、岛屿和平原构成，在世界近现代科学与工业发展中影响深远。',
+  },
+  {
+    id: 'north-america',
+    sourceName: 'North America',
+    name: '北美洲',
+    color: 0x5bd6a2,
+    latitude: 46,
+    longitude: -105,
+    area: '约 2,471 万平方千米',
+    population: '约 6.1 亿',
+    feature: '西部高山、中央平原与东部高地南北纵列分布。',
+    summary:
+      '北美洲北接北冰洋，东西分别临大西洋和太平洋，覆盖寒带、温带与热带生态系统。',
+  },
+  {
+    id: 'south-america',
+    sourceName: 'South America',
+    name: '南美洲',
+    color: 0x65c7ff,
+    latitude: -16,
+    longitude: -60,
+    area: '约 1,784 万平方千米',
+    population: '约 4.4 亿',
+    feature: '拥有安第斯山脉和世界流域面积最大的亚马孙河。',
+    summary:
+      '南美洲大部分位于南半球，亚马孙雨林、安第斯高地和南部草原共同构成显著的生态梯度。',
+  },
+  {
+    id: 'oceania',
+    sourceName: 'Oceania',
+    name: '大洋洲',
+    color: 0xff77a8,
+    latitude: -25,
+    longitude: 135,
+    area: '约 852 万平方千米',
+    population: '约 4,600 万',
+    feature: '由澳大利亚大陆、新西兰及太平洋众多岛屿组成。',
+    summary:
+      '大洋洲陆地分散、海洋面积广阔，拥有大量特有物种，并分布着重要的珊瑚礁生态系统。',
+  },
+  {
+    id: 'antarctica',
+    sourceName: 'Antarctica',
+    name: '南极洲',
+    color: 0x8edcff,
+    latitude: -78,
+    longitude: 20,
+    area: '约 1,420 万平方千米',
+    population: '无常住人口',
+    feature: '绝大部分被冰盖覆盖，是全球气候与冰芯研究重地。',
+    summary:
+      '南极洲环绕南极点，是平均海拔最高、最寒冷和最干燥的大陆，主要用于和平科学研究。',
+  },
+];
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020815);
@@ -29,6 +118,7 @@ const camera = new THREE.PerspectiveCamera(
   100
 );
 camera.position.set(0, 1.2, 5);
+camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true,
@@ -41,10 +131,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 container.appendChild(renderer.domElement);
 
-// Soft fill light prevents the night side from becoming completely black.
 scene.add(new THREE.AmbientLight(0x243b55, 0.5));
 
-// The sun stays in world space and does not rotate with the globe.
 const sunLight = new THREE.DirectionalLight(0xfff4dc, 3.8);
 sunLight.position.set(5, 2.5, 4);
 sunLight.target.position.set(0, 0, 0);
@@ -66,10 +154,10 @@ const earth = new THREE.Mesh(
   new THREE.MeshPhysicalMaterial({
     map: earthTexture,
     color: 0xffffff,
-    roughness: 0.68,
+    roughness: 0.72,
     metalness: 0,
-    clearcoat: 0.18,
-    clearcoatRoughness: 0.45,
+    clearcoat: 0.14,
+    clearcoatRoughness: 0.48,
   })
 );
 globeGroup.add(earth);
@@ -79,7 +167,7 @@ const grid = new THREE.LineSegments(
   new THREE.LineBasicMaterial({
     color: 0x61dafb,
     transparent: true,
-    opacity: 0.06,
+    opacity: 0.035,
   })
 );
 globeGroup.add(grid);
@@ -96,86 +184,6 @@ const atmosphere = new THREE.Mesh(
 );
 globeGroup.add(atmosphere);
 
-const continents = [
-  {
-    id: 'asia',
-    name: '亚洲',
-    latitude: 38,
-    longitude: 90,
-    area: '约 4,458 万平方千米',
-    population: '约 48 亿',
-    feature: '面积与人口均居世界第一，地形和气候类型极为多样。',
-    summary:
-      '亚洲横跨北半球和东半球的大部分地区，从北极沿岸延伸至赤道附近，是文明、生态与地貌多样性最丰富的大陆。',
-  },
-  {
-    id: 'africa',
-    name: '非洲',
-    latitude: 4,
-    longitude: 21,
-    area: '约 3,037 万平方千米',
-    population: '约 15 亿',
-    feature: '赤道横贯中部，拥有撒哈拉沙漠、热带草原和雨林。',
-    summary:
-      '非洲以高原地形为主，生物多样性突出，也是现代人类演化研究中的关键区域。',
-  },
-  {
-    id: 'europe',
-    name: '欧洲',
-    latitude: 52,
-    longitude: 15,
-    area: '约 1,018 万平方千米',
-    population: '约 7.4 亿',
-    feature: '海岸线曲折，温带气候广布，城市化程度较高。',
-    summary:
-      '欧洲位于欧亚大陆西部，由众多半岛、岛屿和平原构成，在世界近现代科学与工业发展中影响深远。',
-  },
-  {
-    id: 'north-america',
-    name: '北美洲',
-    latitude: 46,
-    longitude: -105,
-    area: '约 2,471 万平方千米',
-    population: '约 6.1 亿',
-    feature: '西部高山、中央平原与东部高地南北纵列分布。',
-    summary:
-      '北美洲北接北冰洋，东西分别临大西洋和太平洋，覆盖寒带、温带与热带生态系统。',
-  },
-  {
-    id: 'south-america',
-    name: '南美洲',
-    latitude: -16,
-    longitude: -60,
-    area: '约 1,784 万平方千米',
-    population: '约 4.4 亿',
-    feature: '拥有安第斯山脉和世界流域面积最大的亚马孙河。',
-    summary:
-      '南美洲大部分位于南半球，亚马孙雨林、安第斯高地和南部草原共同构成显著的生态梯度。',
-  },
-  {
-    id: 'oceania',
-    name: '大洋洲',
-    latitude: -25,
-    longitude: 135,
-    area: '约 852 万平方千米',
-    population: '约 4,600 万',
-    feature: '由澳大利亚大陆、新西兰及太平洋众多岛屿组成。',
-    summary:
-      '大洋洲陆地分散、海洋面积广阔，拥有大量特有物种，并分布着重要的珊瑚礁生态系统。',
-  },
-  {
-    id: 'antarctica',
-    name: '南极洲',
-    latitude: -78,
-    longitude: 20,
-    area: '约 1,420 万平方千米',
-    population: '无常住人口',
-    feature: '绝大部分被冰盖覆盖，是全球气候与冰芯研究重地。',
-    summary:
-      '南极洲环绕南极点，是平均海拔最高、最寒冷和最干燥的大陆，主要用于和平科学研究。',
-  },
-];
-
 function latLonToVector3(latitude, longitude, radius) {
   const phi = THREE.MathUtils.degToRad(90 - latitude);
   const theta = THREE.MathUtils.degToRad(longitude + 180);
@@ -187,48 +195,155 @@ function latLonToVector3(latitude, longitude, radius) {
   );
 }
 
-const markerGeometry = new THREE.SphereGeometry(0.035, 18, 18);
-const markerMaterial = new THREE.MeshStandardMaterial({
-  color: 0x5ee8ff,
-  emissive: 0x0c9ec4,
-  emissiveIntensity: 1.2,
-  roughness: 0.3,
-});
-const continentMarkers = [];
+function cleanAndUnwrapRing(ring, referenceLongitude = ring[0][0]) {
+  const cleaned = ring.slice(0, -1);
+  let previousLongitude = referenceLongitude;
+
+  return cleaned.map(([rawLongitude, latitude], index) => {
+    let longitude = rawLongitude;
+
+    if (index > 0) {
+      while (longitude - previousLongitude > 180) longitude -= 360;
+      while (longitude - previousLongitude < -180) longitude += 360;
+    }
+
+    previousLongitude = longitude;
+    return new THREE.Vector2(longitude, latitude);
+  });
+}
+
+function appendPolygon(polygon, positions, indices, radius) {
+  if (!polygon[0] || polygon[0].length < 4) return;
+
+  const contour = cleanAndUnwrapRing(polygon[0]);
+  const referenceLongitude = contour[0].x;
+  const holes = polygon
+    .slice(1)
+    .filter((ring) => ring.length >= 4)
+    .map((ring) => cleanAndUnwrapRing(ring, referenceLongitude));
+  const faces = THREE.ShapeUtils.triangulateShape(contour, holes);
+  const vertices = contour.concat(...holes);
+  const vertexOffset = positions.length / 3;
+
+  for (const vertex of vertices) {
+    const position = latLonToVector3(vertex.y, vertex.x, radius);
+    positions.push(position.x, position.y, position.z);
+  }
+
+  for (const face of faces) {
+    indices.push(
+      vertexOffset + face[0],
+      vertexOffset + face[1],
+      vertexOffset + face[2]
+    );
+  }
+}
+
+function createContinentSurface(continent, features) {
+  const positions = [];
+  const indices = [];
+
+  for (const feature of features) {
+    const { geometry } = feature;
+    if (!geometry) continue;
+
+    const polygons =
+      geometry.type === 'Polygon'
+        ? [geometry.coordinates]
+        : geometry.type === 'MultiPolygon'
+          ? geometry.coordinates
+          : [];
+
+    for (const polygon of polygons) {
+      appendPolygon(polygon, positions, indices, 1.512);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+
+  const material = new THREE.MeshStandardMaterial({
+    color: continent.color,
+    emissive: continent.color,
+    emissiveIntensity: 0.12,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.72,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.continent = continent;
+  mesh.userData.baseEmissiveIntensity = material.emissiveIntensity;
+  return mesh;
+}
+
+const continentSurfaces = [];
+const continentAnchors = [];
 
 for (const continent of continents) {
-  const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone());
-  marker.position.copy(
-    latLonToVector3(continent.latitude, continent.longitude, 1.535)
+  const anchor = new THREE.Object3D();
+  anchor.position.copy(
+    latLonToVector3(continent.latitude, continent.longitude, 1.54)
   );
-  marker.userData.continent = continent;
-  globeGroup.add(marker);
-  continentMarkers.push(marker);
+  globeGroup.add(anchor);
+  continentAnchors.push(anchor);
 
   const label = document.createElement('span');
   label.className = 'continent-label';
   label.textContent = continent.name;
-  label.dataset.continentId = continent.id;
   labelsContainer.appendChild(label);
   continent.labelElement = label;
+  continent.anchor = anchor;
 }
 
-function openContinentPanel(continent) {
-  continentName.textContent = continent.name;
-  continentSummary.textContent = continent.summary;
-  continentArea.textContent = continent.area;
-  continentPopulation.textContent = continent.population;
-  continentFeature.textContent = continent.feature;
-  continentPanel.classList.add('is-open');
-  continentPanel.setAttribute('aria-hidden', 'false');
+async function loadContinentSurfaces() {
+  const dataPaths = [
+    '/data/ne_110m_admin_0_countries.geojson',
+    '/public/data/ne_110m_admin_0_countries.geojson',
+  ];
+  let response;
+
+  for (const dataPath of dataPaths) {
+    const candidate = await fetch(dataPath);
+    if (candidate.ok) {
+      response = candidate;
+      break;
+    }
+  }
+
+  if (!response) {
+    throw new Error('Natural Earth 数据加载失败');
+  }
+
+  const geojson = await response.json();
+
+  for (const continent of continents) {
+    const features = geojson.features.filter(
+      (feature) =>
+        feature.properties?.CONTINENT === continent.sourceName
+    );
+    const surface = createContinentSurface(continent, features);
+    continentSurfaces.push(surface);
+    globeGroup.add(surface);
+  }
 }
 
-function closeContinentPanel() {
-  continentPanel.classList.remove('is-open');
-  continentPanel.setAttribute('aria-hidden', 'true');
-}
-
-closeContinentPanelButton.addEventListener('click', closeContinentPanel);
+loadContinentSurfaces().catch((error) => {
+  console.error(error);
+  pointerOutput.textContent = '大陆数据加载失败';
+});
 
 const starCount = 1600;
 const starPositions = new Float32Array(starCount * 3);
@@ -249,7 +364,6 @@ starGeometry.setAttribute(
   'position',
   new THREE.BufferAttribute(starPositions, 3)
 );
-
 const stars = new THREE.Points(
   starGeometry,
   new THREE.PointsMaterial({
@@ -262,6 +376,23 @@ const stars = new THREE.Points(
 );
 scene.add(stars);
 
+function openContinentPanel(continent) {
+  continentName.textContent = continent.name;
+  continentSummary.textContent = continent.summary;
+  continentArea.textContent = continent.area;
+  continentPopulation.textContent = continent.population;
+  continentFeature.textContent = continent.feature;
+  continentPanel.classList.add('is-open');
+  continentPanel.setAttribute('aria-hidden', 'false');
+}
+
+function closeContinentPanel() {
+  continentPanel.classList.remove('is-open');
+  continentPanel.setAttribute('aria-hidden', 'true');
+}
+
+closePanelButton.addEventListener('click', closeContinentPanel);
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const dragState = {
@@ -271,13 +402,16 @@ const dragState = {
   previousY: 0,
   totalDistance: 0,
 };
+let hoveredSurface = null;
 
-function updatePointerCoordinates(event) {
+function setPointerFromEvent(event) {
   const bounds = renderer.domElement.getBoundingClientRect();
   pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
   pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
-
   raycaster.setFromCamera(pointer, camera);
+}
+
+function updateCoordinateOutput() {
   const hit = raycaster.intersectObject(earth)[0];
 
   if (!hit) {
@@ -290,9 +424,31 @@ function updatePointerCoordinates(event) {
   const longitude = THREE.MathUtils.radToDeg(
     Math.atan2(point.z, -point.x)
   );
-
   pointerOutput.textContent =
     `${latitude.toFixed(2)} deg, ${longitude.toFixed(2)} deg`;
+}
+
+function updateSurfaceHover() {
+  const hit = raycaster.intersectObjects(continentSurfaces)[0];
+  const nextSurface = hit?.object ?? null;
+
+  if (hoveredSurface === nextSurface) return;
+
+  if (hoveredSurface) {
+    hoveredSurface.material.emissiveIntensity =
+      hoveredSurface.userData.baseEmissiveIntensity;
+    hoveredSurface.material.opacity = 0.72;
+  }
+
+  hoveredSurface = nextSurface;
+
+  if (hoveredSurface) {
+    hoveredSurface.material.emissiveIntensity = 0.48;
+    hoveredSurface.material.opacity = 0.92;
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    renderer.domElement.style.cursor = dragState.active ? 'grabbing' : 'grab';
+  }
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -303,6 +459,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
   dragState.previousX = event.clientX;
   dragState.previousY = event.clientY;
   dragState.totalDistance = 0;
+  renderer.domElement.style.cursor = 'grabbing';
   renderer.domElement.setPointerCapture(event.pointerId);
 });
 
@@ -323,27 +480,26 @@ renderer.domElement.addEventListener('pointermove', (event) => {
     dragState.previousY = event.clientY;
   }
 
-  updatePointerCoordinates(event);
+  setPointerFromEvent(event);
+  updateCoordinateOutput();
+  updateSurfaceHover();
 });
 
 function stopDragging(event) {
   if (event.pointerId !== dragState.pointerId) return;
 
   if (dragState.totalDistance < 5) {
-    const bounds = renderer.domElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-    pointer.y =
-      -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    const markerHit = raycaster.intersectObjects(continentMarkers)[0];
+    setPointerFromEvent(event);
+    const surfaceHit = raycaster.intersectObjects(continentSurfaces)[0];
 
-    if (markerHit) {
-      openContinentPanel(markerHit.object.userData.continent);
+    if (surfaceHit) {
+      openContinentPanel(surfaceHit.object.userData.continent);
     }
   }
 
   dragState.active = false;
   dragState.pointerId = null;
+  renderer.domElement.style.cursor = hoveredSurface ? 'pointer' : 'grab';
 }
 
 renderer.domElement.addEventListener('pointerup', stopDragging);
@@ -385,18 +541,14 @@ const worldNormal = new THREE.Vector3();
 const cameraDirection = new THREE.Vector3();
 
 function updateContinentLabels() {
-  camera.getWorldDirection(cameraDirection);
+  camera.getWorldDirection(cameraDirection).negate();
 
-  for (const continent of continents) {
-    const marker = continentMarkers.find(
-      (item) => item.userData.continent.id === continent.id
-    );
-    marker.getWorldPosition(worldPosition);
+  for (let index = 0; index < continents.length; index += 1) {
+    const continent = continents[index];
+    continentAnchors[index].getWorldPosition(worldPosition);
     worldNormal.copy(worldPosition).normalize();
 
-    const isFrontFacing =
-      worldNormal.dot(cameraDirection.clone().negate()) > 0.12;
-
+    const isFrontFacing = worldNormal.dot(cameraDirection) > 0.12;
     projectedPosition.copy(worldPosition).project(camera);
     const isOnScreen =
       Math.abs(projectedPosition.x) <= 1.05 &&
