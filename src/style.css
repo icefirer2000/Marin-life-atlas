@@ -144,10 +144,10 @@ button:focus-visible {
 .continent-label {
   position: absolute;
   padding: 5px 9px;
-  border: 1px solid rgb(103 232 249 / 32%);
+  border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 999px;
   color: #ecfeff;
-  background: rgb(3 23 38 / 78%);
+  background: rgb(3 23 38 / 86%);
   box-shadow: 0 6px 22px rgb(0 0 0 / 28%);
   font-size: 0.73rem;
   font-weight: 700;
