@@ -145,19 +145,16 @@ scene.add(rimLight);
 const globeGroup = new THREE.Group();
 scene.add(globeGroup);
 
-const earthTexture = new THREE.TextureLoader().load('/earth-map.jpg');
-earthTexture.colorSpace = THREE.SRGBColorSpace;
-earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
 const earth = new THREE.Mesh(
   new THREE.SphereGeometry(1.5, 96, 64),
   new THREE.MeshPhysicalMaterial({
-    map: earthTexture,
-    color: 0xffffff,
-    roughness: 0.72,
+    color: 0x061c32,
+    roughness: 0.58,
     metalness: 0,
-    clearcoat: 0.14,
-    clearcoatRoughness: 0.48,
+    clearcoat: 0.42,
+    clearcoatRoughness: 0.32,
+    emissive: 0x020b14,
+    emissiveIntensity: 0.35,
   })
 );
 globeGroup.add(earth);
@@ -212,7 +209,85 @@ function cleanAndUnwrapRing(ring, referenceLongitude = ring[0][0]) {
   });
 }
 
-function appendPolygon(polygon, positions, indices, radius) {
+const MAX_SURFACE_EDGE_ANGLE = THREE.MathUtils.degToRad(2);
+const MAX_SUBDIVISION_DEPTH = 5;
+
+function pushSphericalVertex(position, radius, positions, normals) {
+  const normal = position.clone().normalize();
+  const surfacePosition = normal.clone().multiplyScalar(radius);
+
+  positions.push(surfacePosition.x, surfacePosition.y, surfacePosition.z);
+  normals.push(normal.x, normal.y, normal.z);
+}
+
+function appendSphericalTriangle(
+  a,
+  b,
+  c,
+  radius,
+  positions,
+  normals,
+  depth = 0
+) {
+  const maxEdgeAngle = Math.max(
+    a.angleTo(b),
+    b.angleTo(c),
+    c.angleTo(a)
+  );
+
+  if (
+    maxEdgeAngle <= MAX_SURFACE_EDGE_ANGLE ||
+    depth >= MAX_SUBDIVISION_DEPTH
+  ) {
+    pushSphericalVertex(a, radius, positions, normals);
+    pushSphericalVertex(b, radius, positions, normals);
+    pushSphericalVertex(c, radius, positions, normals);
+    return;
+  }
+
+  const ab = a.clone().add(b).normalize();
+  const bc = b.clone().add(c).normalize();
+  const ca = c.clone().add(a).normalize();
+
+  appendSphericalTriangle(
+    a,
+    ab,
+    ca,
+    radius,
+    positions,
+    normals,
+    depth + 1
+  );
+  appendSphericalTriangle(
+    ab,
+    b,
+    bc,
+    radius,
+    positions,
+    normals,
+    depth + 1
+  );
+  appendSphericalTriangle(
+    ca,
+    bc,
+    c,
+    radius,
+    positions,
+    normals,
+    depth + 1
+  );
+  appendSphericalTriangle(
+    ab,
+    bc,
+    ca,
+    radius,
+    positions,
+    normals,
+    depth + 1
+  );
+}
+
+function appendPolygon(polygon, positions, normals, radius) {
   if (!polygon[0] || polygon[0].length < 4) return;
 
   const contour = cleanAndUnwrapRing(polygon[0]);
@@ -223,25 +298,25 @@ function appendPolygon(polygon, positions, indices, radius) {
     .map((ring) => cleanAndUnwrapRing(ring, referenceLongitude));
   const faces = THREE.ShapeUtils.triangulateShape(contour, holes);
   const vertices = contour.concat(...holes);
-  const vertexOffset = positions.length / 3;
-
-  for (const vertex of vertices) {
-    const position = latLonToVector3(vertex.y, vertex.x, radius);
-    positions.push(position.x, position.y, position.z);
-  }
+  const sphericalVertices = vertices.map((vertex) =>
+    latLonToVector3(vertex.y, vertex.x, 1).normalize()
+  );
 
   for (const face of faces) {
-    indices.push(
-      vertexOffset + face[0],
-      vertexOffset + face[1],
-      vertexOffset + face[2]
+    appendSphericalTriangle(
+      sphericalVertices[face[0]],
+      sphericalVertices[face[1]],
+      sphericalVertices[face[2]],
+      radius,
+      positions,
+      normals
     );
   }
 }
 
 function createContinentSurface(continent, features) {
   const positions = [];
-  const indices = [];
+  const normals = [];
 
   for (const feature of features) {
     const { geometry } = feature;
@@ -255,7 +330,7 @@ function createContinentSurface(continent, features) {
           : [];
 
     for (const polygon of polygons) {
-      appendPolygon(polygon, positions, indices, 1.512);
+      appendPolygon(polygon, positions, normals, 1.516);
     }
   }
 
@@ -264,20 +339,22 @@ function createContinentSurface(continent, features) {
     'position',
     new THREE.Float32BufferAttribute(positions, 3)
   );
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
+  geometry.setAttribute(
+    'normal',
+    new THREE.Float32BufferAttribute(normals, 3)
+  );
   geometry.computeBoundingSphere();
 
   const material = new THREE.MeshStandardMaterial({
     color: continent.color,
     emissive: continent.color,
     emissiveIntensity: 0.12,
-    transparent: true,
-    opacity: 0.72,
-    roughness: 0.72,
+    transparent: false,
+    opacity: 1,
+    roughness: 0.66,
     metalness: 0,
-    side: THREE.DoubleSide,
-    depthWrite: false,
+    side: THREE.FrontSide,
+    depthWrite: true,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
@@ -286,6 +363,7 @@ function createContinentSurface(continent, features) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.continent = continent;
   mesh.userData.baseEmissiveIntensity = material.emissiveIntensity;
+  mesh.userData.baseColor = material.color.clone();
   return mesh;
 }
 
@@ -437,14 +515,16 @@ function updateSurfaceHover() {
   if (hoveredSurface) {
     hoveredSurface.material.emissiveIntensity =
       hoveredSurface.userData.baseEmissiveIntensity;
-    hoveredSurface.material.opacity = 0.72;
+    hoveredSurface.material.color.copy(hoveredSurface.userData.baseColor);
   }
 
   hoveredSurface = nextSurface;
 
   if (hoveredSurface) {
     hoveredSurface.material.emissiveIntensity = 0.48;
-    hoveredSurface.material.opacity = 0.92;
+    hoveredSurface.material.color
+      .copy(hoveredSurface.userData.baseColor)
+      .lerp(new THREE.Color(0xffffff), 0.18);
     renderer.domElement.style.cursor = 'pointer';
   } else {
     renderer.domElement.style.cursor = dragState.active ? 'grabbing' : 'grab';
