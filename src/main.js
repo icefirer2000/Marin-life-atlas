@@ -4,6 +4,10 @@ const container = document.querySelector('#scene');
 const toggleButton = document.querySelector('#toggle-rotation');
 const resetButton = document.querySelector('#reset-camera');
 const pointerOutput = document.querySelector('#pointer-position');
+const pointerDecimalOutput = document.querySelector(
+  '#pointer-position-decimal'
+);
+const layerOptions = document.querySelector('#layer-options');
 const labelsContainer = document.querySelector('#continent-labels');
 const continentPanel = document.querySelector('#continent-panel');
 const closePanelButton = document.querySelector('#close-continent-panel');
@@ -159,16 +163,6 @@ const earth = new THREE.Mesh(
 );
 globeGroup.add(earth);
 
-const grid = new THREE.LineSegments(
-  new THREE.WireframeGeometry(new THREE.SphereGeometry(1.505, 32, 20)),
-  new THREE.LineBasicMaterial({
-    color: 0x61dafb,
-    transparent: true,
-    opacity: 0.035,
-  })
-);
-globeGroup.add(grid);
-
 const atmosphere = new THREE.Mesh(
   new THREE.SphereGeometry(1.57, 64, 32),
   new THREE.MeshBasicMaterial({
@@ -191,6 +185,70 @@ function latLonToVector3(latitude, longitude, radius) {
     radius * Math.sin(phi) * Math.sin(theta)
   );
 }
+
+function createGeographicLine(coordinates, material) {
+  const points = coordinates.map(([latitude, longitude]) =>
+    latLonToVector3(latitude, longitude, 1.527)
+  );
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    material
+  );
+}
+
+function createGraticule() {
+  const group = new THREE.Group();
+  const regularMaterial = new THREE.LineBasicMaterial({
+    color: 0x65cfff,
+    transparent: true,
+    opacity: 0.22,
+  });
+  const majorMaterial = new THREE.LineBasicMaterial({
+    color: 0x8de4ff,
+    transparent: true,
+    opacity: 0.4,
+  });
+  const referenceMaterial = new THREE.LineBasicMaterial({
+    color: 0xd5f7ff,
+    transparent: true,
+    opacity: 0.68,
+  });
+
+  for (let latitude = -80; latitude <= 80; latitude += 10) {
+    const coordinates = [];
+    for (let longitude = -180; longitude <= 180; longitude += 2) {
+      coordinates.push([latitude, longitude]);
+    }
+
+    const material =
+      latitude === 0
+        ? referenceMaterial
+        : latitude % 30 === 0
+          ? majorMaterial
+          : regularMaterial;
+    group.add(createGeographicLine(coordinates, material));
+  }
+
+  for (let longitude = -180; longitude < 180; longitude += 10) {
+    const coordinates = [];
+    for (let latitude = -90; latitude <= 90; latitude += 2) {
+      coordinates.push([latitude, longitude]);
+    }
+
+    const material =
+      longitude === 0
+        ? referenceMaterial
+        : longitude % 30 === 0
+          ? majorMaterial
+          : regularMaterial;
+    group.add(createGeographicLine(coordinates, material));
+  }
+
+  return group;
+}
+
+const graticule = createGraticule();
+globeGroup.add(graticule);
 
 function cleanAndUnwrapRing(ring, referenceLongitude = ring[0][0]) {
   const cleaned = ring.slice(0, -1);
@@ -379,14 +437,57 @@ function createContinentSurface(continent, features) {
 
 const continentSurfaces = [];
 const continentAnchors = [];
+const continentLayer = new THREE.Group();
+globeGroup.add(continentLayer);
 let continentSurfacesReady = false;
+const layerState = {
+  continents: true,
+  graticule: true,
+};
+
+const layerDefinitions = [
+  {
+    id: 'continents',
+    label: '大陆模型',
+    target: continentLayer,
+    onChange(visible) {
+      if (!visible) closeContinentPanel();
+    },
+  },
+  {
+    id: 'graticule',
+    label: '经纬度网格',
+    target: graticule,
+  },
+];
+
+for (const layer of layerDefinitions) {
+  const option = document.createElement('label');
+  option.className = 'layer-option';
+
+  const label = document.createElement('span');
+  label.textContent = layer.label;
+
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = layerState[layer.id];
+  input.setAttribute('aria-label', `显示${layer.label}`);
+  input.addEventListener('change', () => {
+    layerState[layer.id] = input.checked;
+    layer.target.visible = input.checked;
+    layer.onChange?.(input.checked);
+  });
+
+  option.append(label, input);
+  layerOptions.appendChild(option);
+}
 
 for (const continent of continents) {
   const anchor = new THREE.Object3D();
   anchor.position.copy(
     latLonToVector3(continent.latitude, continent.longitude, 1.54)
   );
-  globeGroup.add(anchor);
+  continentLayer.add(anchor);
   continentAnchors.push(anchor);
 
   const label = document.createElement('span');
@@ -431,16 +532,18 @@ async function loadContinentSurfaces() {
     );
     const surface = createContinentSurface(continent, features);
     continentSurfaces.push(surface);
-    globeGroup.add(surface);
+    continentLayer.add(surface);
   }
 
   continentSurfacesReady = true;
   pointerOutput.textContent = '尚未选中球面';
+  pointerDecimalOutput.textContent = '';
 }
 
 loadContinentSurfaces().catch((error) => {
   console.error(error);
   pointerOutput.textContent = '大陆模型加载失败，请检查数据文件';
+  pointerDecimalOutput.textContent = '';
 });
 
 const starCount = 1600;
@@ -509,11 +612,21 @@ function setPointerFromEvent(event) {
   raycaster.setFromCamera(pointer, camera);
 }
 
+function formatDms(value, positiveDirection, negativeDirection) {
+  const totalSeconds = Math.round(Math.abs(value) * 3600);
+  const degrees = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const direction = value >= 0 ? positiveDirection : negativeDirection;
+  return `${direction} ${degrees}°${minutes}′${seconds}″`;
+}
+
 function updateCoordinateOutput() {
   const hit = raycaster.intersectObject(earth)[0];
 
   if (!hit) {
     pointerOutput.textContent = '尚未选中球面';
+    pointerDecimalOutput.textContent = '';
     return;
   }
 
@@ -522,12 +635,16 @@ function updateCoordinateOutput() {
   const longitude = THREE.MathUtils.radToDeg(
     Math.atan2(point.z, -point.x)
   );
-  pointerOutput.textContent =
-    `${latitude.toFixed(2)} deg, ${longitude.toFixed(2)} deg`;
+  pointerOutput.textContent = `${formatDms(latitude, '北纬', '南纬')}，${formatDms(longitude, '东经', '西经')}`;
+  pointerDecimalOutput.textContent =
+    `${Math.abs(latitude).toFixed(4)}° ${latitude >= 0 ? 'N' : 'S'}  /  ` +
+    `${Math.abs(longitude).toFixed(4)}° ${longitude >= 0 ? 'E' : 'W'}`;
 }
 
 function updateSurfaceHover() {
-  const hit = raycaster.intersectObjects(continentSurfaces)[0];
+  const hit = layerState.continents
+    ? raycaster.intersectObjects(continentSurfaces)[0]
+    : null;
   const nextSurface = hit?.object ?? null;
 
   if (hoveredSurface === nextSurface) return;
@@ -585,12 +702,20 @@ renderer.domElement.addEventListener('pointermove', (event) => {
   updateSurfaceHover();
 });
 
+renderer.domElement.addEventListener('pointerleave', () => {
+  if (dragState.active) return;
+  pointerOutput.textContent = '尚未选中球面';
+  pointerDecimalOutput.textContent = '';
+});
+
 function stopDragging(event) {
   if (event.pointerId !== dragState.pointerId) return;
 
   if (dragState.totalDistance < 5) {
     setPointerFromEvent(event);
-    const surfaceHit = raycaster.intersectObjects(continentSurfaces)[0];
+    const surfaceHit = layerState.continents
+      ? raycaster.intersectObjects(continentSurfaces)[0]
+      : null;
 
     if (surfaceHit) {
       openContinentPanel(surfaceHit.object.userData.continent);
@@ -656,7 +781,10 @@ function updateContinentLabels() {
 
     continent.labelElement.classList.toggle(
       'is-visible',
-      continentSurfacesReady && isFrontFacing && isOnScreen
+      layerState.continents &&
+        continentSurfacesReady &&
+        isFrontFacing &&
+        isOnScreen
     );
     continent.labelElement.style.left =
       `${(projectedPosition.x * 0.5 + 0.5) * window.innerWidth}px`;

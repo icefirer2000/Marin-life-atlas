@@ -7,7 +7,7 @@
       name="description"
       content="使用 Three.js 与 Natural Earth 数据构建的可交互三维地球"
     />
-    <title>海错图项目 v1.4</title>
+    <title>海错图项目 v1.5</title>
     <link rel="stylesheet" href="/src/style.css" />
     <script type="importmap">
       {
@@ -23,7 +23,7 @@
         <p class="eyebrow">THREE.JS LAB</p>
         <h1>海错图</h1>
         <p class="description">
-          拖动旋转地球，滚轮缩放。纯色海洋上仅显示可交互的彩色大陆模型。
+          拖动旋转地球，滚轮缩放。可通过右侧图层面板控制大陆与真实经纬网。
         </p>
         <div class="actions">
           <button id="toggle-rotation" type="button">暂停自转</button>
@@ -34,9 +34,16 @@
       <div class="coordinates" aria-live="polite">
         <span>指针位置</span>
         <strong id="pointer-position">尚未选中球面</strong>
+        <small id="pointer-position-decimal"></small>
       </div>
 
       <div id="continent-labels" class="continent-labels"></div>
+
+      <aside class="layer-panel" aria-labelledby="layer-panel-title">
+        <p class="eyebrow">MAP LAYERS</p>
+        <h2 id="layer-panel-title">图层显示</h2>
+        <div id="layer-options" class="layer-options"></div>
+      </aside>
 
       <aside
         id="continent-panel"
@@ -71,7 +78,10 @@
         </dl>
       </aside>
 
-      <div id="scene" aria-label="可交互的三维地球与大陆表面"></div>
+      <div
+        id="scene"
+        aria-label="可交互的三维地球、大陆表面与经纬网"
+      ></div>
     </div>
 
     <script type="module" src="/src/main.js"></script>
