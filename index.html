@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="使用 Three.js 构建的可交互海洋球体示例"
+    />
+    <title>Three.js 海洋球体</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="panel">
+        <p class="eyebrow">THREE.JS LAB</p>
+        <h1>海洋球体</h1>
+        <p class="description">
+          拖动旋转视角，滚轮缩放，右键拖动平移。
+        </p>
+        <div class="actions">
+          <button id="toggle-rotation" type="button">暂停自转</button>
+          <button id="reset-camera" type="button">复位视角</button>
+        </div>
+      </div>
+
+      <div class="coordinates" aria-live="polite">
+        <span>指针位置</span>
+        <strong id="pointer-position">尚未选中球面</strong>
+      </div>
+
+      <div id="scene" aria-label="可交互的三维海洋球体"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
