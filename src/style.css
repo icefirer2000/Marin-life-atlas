@@ -186,6 +186,49 @@ button:focus-visible {
   cursor: pointer;
 }
 
+.layer-option input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.layer-option:has(input:disabled) {
+  color: #7894a5;
+  cursor: not-allowed;
+}
+
+.layer-option__meta {
+  margin-left: auto;
+  color: #78a8bd;
+  font-size: 0.67rem;
+  white-space: nowrap;
+}
+
+.terrain-status {
+  margin: 12px 2px 0;
+  color: #85a9ba;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.terrain-status.is-loading {
+  color: #67e8f9;
+}
+
+.terrain-status.is-error {
+  color: #fda4af;
+}
+
+.data-credit {
+  margin: 8px 2px 0;
+  color: #68899a;
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.data-credit a {
+  color: #7ab8d0;
+}
+
 .continent-labels {
   position: fixed;
   z-index: 2;
@@ -218,8 +261,8 @@ button:focus-visible {
 .continent-panel {
   position: fixed;
   z-index: 3;
-  top: 214px;
-  right: 24px;
+  top: 24px;
+  right: 308px;
   width: min(360px, calc(100vw - 48px));
   padding: 24px;
   border: 1px solid rgb(124 211 252 / 20%);
@@ -331,13 +374,29 @@ button:focus-visible {
     font-size: 0.82rem;
   }
 
+  .layer-option__meta,
+  .terrain-status,
+  .data-credit {
+    display: none;
+  }
+
   .continent-panel {
     top: auto;
     right: 14px;
-    bottom: 238px;
+    bottom: 330px;
     left: 14px;
     width: auto;
     max-height: 55vh;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1040px) {
+  .continent-panel {
+    top: 230px;
+    right: 24px;
+    width: min(320px, calc(100vw - 48px));
+    max-height: calc(100vh - 254px);
     overflow-y: auto;
   }
 }
