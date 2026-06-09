@@ -7,15 +7,15 @@
       name="description"
       content="使用 Three.js 构建的可交互海洋球体示例"
     />
-    <title>Three.js 海洋球体</title>
+    <title>海错图项目 v1.1</title>
   </head>
   <body>
     <div id="app">
       <div class="panel">
         <p class="eyebrow">THREE.JS LAB</p>
-        <h1>海洋球体</h1>
+        <h1>海错图</h1>
         <p class="description">
-          拖动旋转视角，滚轮缩放，右键拖动平移。
+          拖动旋转地球，滚轮缩放。点击大陆标记查看基本信息。
         </p>
         <div class="actions">
           <button id="toggle-rotation" type="button">暂停自转</button>
@@ -27,6 +27,41 @@
         <span>指针位置</span>
         <strong id="pointer-position">尚未选中球面</strong>
       </div>
+
+      <div id="continent-labels" class="continent-labels"></div>
+
+      <aside
+        id="continent-panel"
+        class="continent-panel"
+        aria-live="polite"
+        aria-hidden="true"
+      >
+        <button
+          id="close-continent-panel"
+          class="continent-panel__close"
+          type="button"
+          aria-label="关闭大陆信息"
+        >
+          ×
+        </button>
+        <p class="eyebrow">CONTINENT PROFILE</p>
+        <h2 id="continent-name">大陆名称</h2>
+        <p id="continent-summary"></p>
+        <dl class="continent-facts">
+          <div>
+            <dt>面积</dt>
+            <dd id="continent-area"></dd>
+          </div>
+          <div>
+            <dt>人口</dt>
+            <dd id="continent-population"></dd>
+          </div>
+          <div>
+            <dt>主要特征</dt>
+            <dd id="continent-feature"></dd>
+          </div>
+        </dl>
+      </aside>
 
       <div id="scene" aria-label="可交互的三维海洋球体"></div>
     </div>
