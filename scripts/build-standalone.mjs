@@ -11,12 +11,7 @@ const [htmlSource, cssSource, mainSource] = await Promise.all([
   readFile(path.join(projectDirectory, 'src', 'main.js'), 'utf8'),
 ]);
 
-const standaloneMain = mainSource
-  .replace(
-    "'/earth-map.jpg'",
-    "'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'"
-  )
-  .replace(
+const standaloneMain = mainSource.replace(
     `const dataPaths = [
     '/data/ne_110m_admin_0_countries.geojson',
     '/public/data/ne_110m_admin_0_countries.geojson',
