@@ -8,6 +8,7 @@ const pointerDecimalOutput = document.querySelector(
   '#pointer-position-decimal'
 );
 const layerOptions = document.querySelector('#layer-options');
+const terrainStatus = document.querySelector('#terrain-status');
 const labelsContainer = document.querySelector('#continent-labels');
 const continentPanel = document.querySelector('#continent-panel');
 const closePanelButton = document.querySelector('#close-continent-panel');
@@ -16,6 +17,9 @@ const continentSummary = document.querySelector('#continent-summary');
 const continentArea = document.querySelector('#continent-area');
 const continentPopulation = document.querySelector('#continent-population');
 const continentFeature = document.querySelector('#continent-feature');
+const continentTerrainStatus = document.querySelector(
+  '#continent-terrain-status'
+);
 
 const continents = [
   {
@@ -110,6 +114,23 @@ const continents = [
       '南极洲环绕南极点，是平均海拔最高、最寒冷和最干燥的大陆，主要用于和平科学研究。',
   },
 ];
+
+const terrainBounds = {
+  asia: { west: 25, east: 180, south: -10, north: 82 },
+  africa: { west: -20, east: 55, south: -36, north: 38 },
+  europe: { west: -25, east: 45, south: 34, north: 72 },
+  'north-america': { west: -170, east: -50, south: 5, north: 84 },
+  'south-america': { west: -82, east: -34, south: -56, north: 14 },
+  oceania: { west: 110, east: 180, south: -50, north: 10 },
+  antarctica: { west: -180, east: 180, south: -86, north: -60 },
+};
+
+const TERRAIN_TILE_ZOOM = 5;
+const TERRAIN_SEGMENTS_PER_TILE = 32;
+const EARTH_RADIUS_METERS = 6371000;
+const TERRAIN_BASE_RADIUS = 1.523;
+const TERRAIN_EXAGGERATION = 35;
+const CONTOUR_LEVELS = [200, 500, 1000, 2000, 3000, 5000];
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020815);
@@ -437,12 +458,23 @@ function createContinentSurface(continent, features) {
 
 const continentSurfaces = [];
 const continentAnchors = [];
+const continentFeaturesById = new Map();
 const continentLayer = new THREE.Group();
 globeGroup.add(continentLayer);
+const terrainLayer = new THREE.Group();
+globeGroup.add(terrainLayer);
+const contourLayer = new THREE.Group();
+globeGroup.add(contourLayer);
 let continentSurfacesReady = false;
+let selectedTerrainContinent = null;
+let terrainLoadingContinentId = null;
+let terrainRequestId = 0;
 const layerState = {
   continents: true,
   graticule: true,
+  terrain: false,
+  contours: false,
+  naturalColors: false,
 };
 
 const layerDefinitions = [
@@ -459,6 +491,26 @@ const layerDefinitions = [
     label: '经纬度网格',
     target: graticule,
   },
+  {
+    id: 'terrain',
+    label: 'DEM 地形',
+    meta: '选择大陆',
+    target: terrainLayer,
+    disabled: true,
+  },
+  {
+    id: 'contours',
+    label: '等高线',
+    meta: '等待地形',
+    target: contourLayer,
+    disabled: true,
+  },
+  {
+    id: 'naturalColors',
+    label: '真实地形颜色',
+    meta: '后续版本',
+    disabled: true,
+  },
 ];
 
 for (const layer of layerDefinitions) {
@@ -468,18 +520,30 @@ for (const layer of layerDefinitions) {
   const label = document.createElement('span');
   label.textContent = layer.label;
 
+  if (layer.meta) {
+    const meta = document.createElement('small');
+    meta.className = 'layer-option__meta';
+    meta.textContent = layer.meta;
+    option.append(label, meta);
+  } else {
+    option.append(label);
+  }
+
   const input = document.createElement('input');
   input.type = 'checkbox';
   input.checked = layerState[layer.id];
+  input.disabled = Boolean(layer.disabled);
   input.setAttribute('aria-label', `显示${layer.label}`);
   input.addEventListener('change', () => {
     layerState[layer.id] = input.checked;
-    layer.target.visible = input.checked;
+    if (layer.target) layer.target.visible = input.checked;
     layer.onChange?.(input.checked);
   });
 
-  option.append(label, input);
+  option.append(input);
   layerOptions.appendChild(option);
+  layer.input = input;
+  layer.metaElement = option.querySelector('.layer-option__meta');
 }
 
 for (const continent of continents) {
@@ -530,6 +594,7 @@ async function loadContinentSurfaces() {
       (feature) =>
         feature.properties?.CONTINENT === continent.sourceName
     );
+    continentFeaturesById.set(continent.id, features);
     const surface = createContinentSurface(continent, features);
     continentSurfaces.push(surface);
     continentLayer.add(surface);
@@ -545,6 +610,571 @@ loadContinentSurfaces().catch((error) => {
   pointerOutput.textContent = '大陆模型加载失败，请检查数据文件';
   pointerDecimalOutput.textContent = '';
 });
+
+function getLayerDefinition(id) {
+  return layerDefinitions.find((layer) => layer.id === id);
+}
+
+function setLayerAvailability(id, enabled, meta) {
+  const layer = getLayerDefinition(id);
+  layer.input.disabled = !enabled;
+  if (layer.metaElement && meta) layer.metaElement.textContent = meta;
+}
+
+function setTerrainStatus(message, state = '') {
+  terrainStatus.textContent = message;
+  terrainStatus.classList.toggle('is-loading', state === 'loading');
+  terrainStatus.classList.toggle('is-error', state === 'error');
+  continentTerrainStatus.textContent = message;
+}
+
+function disposeObject(object) {
+  object.traverse((child) => {
+    child.geometry?.dispose();
+    if (Array.isArray(child.material)) {
+      child.material.forEach((material) => material.dispose());
+    } else {
+      child.material?.dispose();
+    }
+  });
+}
+
+function clearGeneratedTerrain() {
+  for (const layer of [terrainLayer, contourLayer]) {
+    for (const child of [...layer.children]) {
+      layer.remove(child);
+      disposeObject(child);
+    }
+  }
+}
+
+function pointInRing(longitude, latitude, ring) {
+  let inside = false;
+
+  for (
+    let current = 0, previous = ring.length - 1;
+    current < ring.length;
+    previous = current, current += 1
+  ) {
+    const [currentLongitude, currentLatitude] = ring[current];
+    const [previousLongitude, previousLatitude] = ring[previous];
+    const crossesLatitude =
+      currentLatitude > latitude !== previousLatitude > latitude;
+    const crossingLongitude =
+      ((previousLongitude - currentLongitude) *
+        (latitude - currentLatitude)) /
+        (previousLatitude - currentLatitude) +
+      currentLongitude;
+
+    if (crossesLatitude && longitude < crossingLongitude) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function pointInPolygon(longitude, latitude, polygon) {
+  if (!pointInRing(longitude, latitude, polygon[0])) return false;
+
+  for (let index = 1; index < polygon.length; index += 1) {
+    if (pointInRing(longitude, latitude, polygon[index])) return false;
+  }
+
+  return true;
+}
+
+function pointInContinent(longitude, latitude, features) {
+  return features.some((feature) => {
+    const geometry = feature.geometry;
+    if (!geometry) return false;
+
+    const polygons =
+      geometry.type === 'Polygon'
+        ? [geometry.coordinates]
+        : geometry.type === 'MultiPolygon'
+          ? geometry.coordinates
+          : [];
+
+    return polygons.some((polygon) =>
+      pointInPolygon(longitude, latitude, polygon)
+    );
+  });
+}
+
+function longitudeToTileX(longitude, zoom) {
+  const tileCount = 2 ** zoom;
+  return THREE.MathUtils.clamp(
+    Math.floor(((longitude + 180) / 360) * tileCount),
+    0,
+    tileCount - 1
+  );
+}
+
+function latitudeToTileY(latitude, zoom) {
+  const limitedLatitude = THREE.MathUtils.clamp(
+    latitude,
+    -85.05112878,
+    85.05112878
+  );
+  const radians = THREE.MathUtils.degToRad(limitedLatitude);
+  const tileCount = 2 ** zoom;
+  return THREE.MathUtils.clamp(
+    Math.floor(
+      ((1 - Math.asinh(Math.tan(radians)) / Math.PI) / 2) * tileCount
+    ),
+    0,
+    tileCount - 1
+  );
+}
+
+function tilePixelToLonLat(tileX, tileY, pixelX, pixelY, zoom) {
+  const tileCount = 2 ** zoom;
+  const normalizedX = (tileX + pixelX / 256) / tileCount;
+  const normalizedY = (tileY + pixelY / 256) / tileCount;
+  const longitude = normalizedX * 360 - 180;
+  const latitude = THREE.MathUtils.radToDeg(
+    Math.atan(Math.sinh(Math.PI * (1 - 2 * normalizedY)))
+  );
+  return { latitude, longitude };
+}
+
+async function loadTerrariumTile(tileX, tileY, zoom) {
+  const url =
+    'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' +
+    `${zoom}/${tileX}/${tileY}.png`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`DEM 瓦片加载失败：${zoom}/${tileX}/${tileY}`);
+  }
+
+  const bitmap = await createImageBitmap(await response.blob());
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext('2d', {
+    alpha: false,
+    willReadFrequently: true,
+  });
+  context.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function decodeTerrariumElevation(imageData, pixelX, pixelY) {
+  const x = THREE.MathUtils.clamp(Math.round(pixelX), 0, 255);
+  const y = THREE.MathUtils.clamp(Math.round(pixelY), 0, 255);
+  const offset = (y * imageData.width + x) * 4;
+  return (
+    imageData.data[offset] * 256 +
+    imageData.data[offset + 1] +
+    imageData.data[offset + 2] / 256 -
+    32768
+  );
+}
+
+const elevationStops = [
+  { elevation: 0, color: new THREE.Color(0x315f3b) },
+  { elevation: 500, color: new THREE.Color(0x71934b) },
+  { elevation: 1000, color: new THREE.Color(0xa9a45d) },
+  { elevation: 2000, color: new THREE.Color(0x9b704d) },
+  { elevation: 3500, color: new THREE.Color(0x765245) },
+  { elevation: 5500, color: new THREE.Color(0xd4c9b5) },
+  { elevation: 9000, color: new THREE.Color(0xf7fbff) },
+];
+
+function getElevationColor(elevation, target) {
+  const limitedElevation = Math.max(0, elevation);
+
+  for (let index = 1; index < elevationStops.length; index += 1) {
+    const lower = elevationStops[index - 1];
+    const upper = elevationStops[index];
+
+    if (limitedElevation <= upper.elevation) {
+      const mix =
+        (limitedElevation - lower.elevation) /
+        (upper.elevation - lower.elevation);
+      return target.copy(lower.color).lerp(upper.color, mix);
+    }
+  }
+
+  return target.copy(elevationStops.at(-1).color);
+}
+
+function terrainRadius(elevation, offset = 0) {
+  return (
+    TERRAIN_BASE_RADIUS +
+    (Math.max(0, elevation) / EARTH_RADIUS_METERS) *
+      TERRAIN_EXAGGERATION +
+    offset
+  );
+}
+
+function pushTerrainTriangle(vertices, positions, normals, colors) {
+  const points = vertices.map((vertex) =>
+    latLonToVector3(
+      vertex.latitude,
+      vertex.longitude,
+      terrainRadius(vertex.elevation)
+    )
+  );
+  const geometricNormal = points[1]
+    .clone()
+    .sub(points[0])
+    .cross(points[2].clone().sub(points[0]));
+  const center = points[0].clone().add(points[1]).add(points[2]);
+
+  if (geometricNormal.dot(center) < 0) {
+    [points[1], points[2]] = [points[2], points[1]];
+    [vertices[1], vertices[2]] = [vertices[2], vertices[1]];
+  }
+
+  const color = new THREE.Color();
+  for (let index = 0; index < 3; index += 1) {
+    const point = points[index];
+    const normal = point.clone().normalize();
+    getElevationColor(vertices[index].elevation, color);
+    positions.push(point.x, point.y, point.z);
+    normals.push(normal.x, normal.y, normal.z);
+    colors.push(color.r, color.g, color.b);
+  }
+}
+
+function addContourSegments(
+  corners,
+  contourPositions,
+  minimum,
+  maximum
+) {
+  for (const level of CONTOUR_LEVELS) {
+    if (level < minimum || level > maximum) continue;
+
+    const intersections = [];
+    const edges = [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 0],
+    ];
+
+    for (const [startIndex, endIndex] of edges) {
+      const start = corners[startIndex];
+      const end = corners[endIndex];
+      const crosses =
+        (start.elevation < level && end.elevation >= level) ||
+        (end.elevation < level && start.elevation >= level);
+      if (!crosses) continue;
+
+      const mix =
+        (level - start.elevation) / (end.elevation - start.elevation);
+      intersections.push({
+        latitude: THREE.MathUtils.lerp(
+          start.latitude,
+          end.latitude,
+          mix
+        ),
+        longitude: THREE.MathUtils.lerp(
+          start.longitude,
+          end.longitude,
+          mix
+        ),
+      });
+    }
+
+    const pairs =
+      intersections.length === 2
+        ? [[0, 1]]
+        : intersections.length === 4
+          ? [
+              [0, 1],
+              [2, 3],
+            ]
+          : [];
+
+    for (const [startIndex, endIndex] of pairs) {
+      for (const intersectionIndex of [startIndex, endIndex]) {
+        const intersection = intersections[intersectionIndex];
+        const point = latLonToVector3(
+          intersection.latitude,
+          intersection.longitude,
+          terrainRadius(level, 0.0008)
+        );
+        contourPositions.push(point.x, point.y, point.z);
+      }
+    }
+  }
+}
+
+function createTerrainTileGeometry(
+  imageData,
+  tileX,
+  tileY,
+  continentFeatures
+) {
+  const positions = [];
+  const normals = [];
+  const colors = [];
+  const contourPositions = [];
+  const sampleSize = TERRAIN_SEGMENTS_PER_TILE + 1;
+  const samples = new Array(sampleSize * sampleSize);
+
+  for (let row = 0; row < sampleSize; row += 1) {
+    for (let column = 0; column < sampleSize; column += 1) {
+      const pixelX = (column / TERRAIN_SEGMENTS_PER_TILE) * 256;
+      const pixelY = (row / TERRAIN_SEGMENTS_PER_TILE) * 256;
+      const coordinates = tilePixelToLonLat(
+        tileX,
+        tileY,
+        pixelX,
+        pixelY,
+        TERRAIN_TILE_ZOOM
+      );
+      samples[row * sampleSize + column] = {
+        ...coordinates,
+        elevation: decodeTerrariumElevation(
+          imageData,
+          pixelX,
+          pixelY
+        ),
+      };
+    }
+  }
+
+  for (let row = 0; row < TERRAIN_SEGMENTS_PER_TILE; row += 1) {
+    for (
+      let column = 0;
+      column < TERRAIN_SEGMENTS_PER_TILE;
+      column += 1
+    ) {
+      const northwest = samples[row * sampleSize + column];
+      const northeast = samples[row * sampleSize + column + 1];
+      const southwest = samples[(row + 1) * sampleSize + column];
+      const southeast = samples[(row + 1) * sampleSize + column + 1];
+      const centerLongitude =
+        (northwest.longitude + southeast.longitude) / 2;
+      const centerLatitude =
+        (northwest.latitude + southeast.latitude) / 2;
+
+      if (
+        !pointInContinent(
+          centerLongitude,
+          centerLatitude,
+          continentFeatures
+        )
+      ) {
+        continue;
+      }
+
+      pushTerrainTriangle(
+        [northwest, southwest, northeast],
+        positions,
+        normals,
+        colors
+      );
+      pushTerrainTriangle(
+        [northeast, southwest, southeast],
+        positions,
+        normals,
+        colors
+      );
+
+      const corners = [northwest, northeast, southeast, southwest];
+      const elevations = corners.map((corner) => corner.elevation);
+      addContourSegments(
+        corners,
+        contourPositions,
+        Math.min(...elevations),
+        Math.max(...elevations)
+      );
+    }
+  }
+
+  return { positions, normals, colors, contourPositions };
+}
+
+function buildTerrainObjects(data) {
+  const terrainGeometry = new THREE.BufferGeometry();
+  terrainGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(data.positions, 3)
+  );
+  terrainGeometry.setAttribute(
+    'normal',
+    new THREE.Float32BufferAttribute(data.normals, 3)
+  );
+  terrainGeometry.setAttribute(
+    'color',
+    new THREE.Float32BufferAttribute(data.colors, 3)
+  );
+  const terrainMesh = new THREE.Mesh(
+    terrainGeometry,
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.82,
+      metalness: 0,
+      side: THREE.FrontSide,
+    })
+  );
+
+  const contourGeometry = new THREE.BufferGeometry();
+  contourGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(data.contourPositions, 3)
+  );
+  const contourLines = new THREE.LineSegments(
+    contourGeometry,
+    new THREE.LineBasicMaterial({
+      color: 0xe7f8ff,
+      transparent: true,
+      opacity: 0.72,
+    })
+  );
+  return { terrainMesh, contourLines };
+}
+
+function getTerrainTiles(bounds) {
+  const minimumX = longitudeToTileX(
+    bounds.west,
+    TERRAIN_TILE_ZOOM
+  );
+  const maximumX = longitudeToTileX(
+    bounds.east - Number.EPSILON,
+    TERRAIN_TILE_ZOOM
+  );
+  const minimumY = latitudeToTileY(
+    bounds.north,
+    TERRAIN_TILE_ZOOM
+  );
+  const maximumY = latitudeToTileY(
+    bounds.south,
+    TERRAIN_TILE_ZOOM
+  );
+  const tiles = [];
+
+  for (let tileY = minimumY; tileY <= maximumY; tileY += 1) {
+    for (let tileX = minimumX; tileX <= maximumX; tileX += 1) {
+      tiles.push({ tileX, tileY });
+    }
+  }
+
+  return tiles;
+}
+
+async function runWithConcurrency(items, concurrency, worker) {
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      await worker(items[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(concurrency, items.length) },
+      runWorker
+    )
+  );
+}
+
+async function selectTerrainContinent(continent) {
+  if (!continentSurfacesReady) return;
+  if (terrainLoadingContinentId === continent.id) return;
+  if (
+    selectedTerrainContinent?.id === continent.id &&
+    terrainLayer.children.length > 0
+  ) {
+    return;
+  }
+
+  const requestId = ++terrainRequestId;
+  selectedTerrainContinent = continent;
+  terrainLoadingContinentId = continent.id;
+  clearGeneratedTerrain();
+  layerState.terrain = false;
+  layerState.contours = false;
+  getLayerDefinition('terrain').input.checked = false;
+  getLayerDefinition('contours').input.checked = false;
+  setLayerAvailability('terrain', false, '加载中');
+  setLayerAvailability('contours', false, '等待地形');
+  setTerrainStatus(`正在加载${continent.name} DEM...`, 'loading');
+
+  const features = continentFeaturesById.get(continent.id);
+  const tiles = getTerrainTiles(terrainBounds[continent.id]);
+  const terrainMeshes = [];
+  const contourLines = [];
+  let completedTiles = 0;
+
+  try {
+    await runWithConcurrency(tiles, 8, async ({ tileX, tileY }) => {
+      if (requestId !== terrainRequestId) return;
+      const imageData = await loadTerrariumTile(
+        tileX,
+        tileY,
+        TERRAIN_TILE_ZOOM
+      );
+      if (requestId !== terrainRequestId) return;
+
+      const data = createTerrainTileGeometry(
+        imageData,
+        tileX,
+        tileY,
+        features
+      );
+      if (data.positions.length > 0) {
+        const objects = buildTerrainObjects(data);
+        terrainMeshes.push(objects.terrainMesh);
+        contourLines.push(objects.contourLines);
+      }
+
+      completedTiles += 1;
+      if (
+        completedTiles === tiles.length ||
+        completedTiles % 8 === 0
+      ) {
+        setTerrainStatus(
+          `正在加载${continent.name} DEM：${completedTiles}/${tiles.length}`,
+          'loading'
+        );
+      }
+    });
+
+    if (requestId !== terrainRequestId) {
+      terrainMeshes.forEach(disposeObject);
+      contourLines.forEach(disposeObject);
+      return;
+    }
+
+    terrainMeshes.forEach((mesh) => terrainLayer.add(mesh));
+    contourLines.forEach((lines) => contourLayer.add(lines));
+    layerState.terrain = true;
+    layerState.contours = false;
+    terrainLayer.visible = true;
+    contourLayer.visible = false;
+    getLayerDefinition('terrain').input.checked = true;
+    getLayerDefinition('contours').input.checked = false;
+    setLayerAvailability('terrain', true, continent.name);
+    setLayerAvailability('contours', true, '200–5000 m');
+    setTerrainStatus(
+      `${continent.name}：z${TERRAIN_TILE_ZOOM} DEM，地形高度视觉放大 ${TERRAIN_EXAGGERATION}×`
+    );
+    terrainLoadingContinentId = null;
+  } catch (error) {
+    if (requestId !== terrainRequestId) return;
+    console.error(error);
+    clearGeneratedTerrain();
+    setLayerAvailability('terrain', false, '加载失败');
+    setLayerAvailability('contours', false, '等待地形');
+    setTerrainStatus(
+      `${continent.name} DEM 加载失败，请检查网络`,
+      'error'
+    );
+    terrainLoadingContinentId = null;
+  }
+}
 
 const starCount = 1600;
 const starPositions = new Float32Array(starCount * 3);
@@ -585,6 +1215,7 @@ function openContinentPanel(continent) {
   continentFeature.textContent = continent.feature;
   continentPanel.classList.add('is-open');
   continentPanel.setAttribute('aria-hidden', 'false');
+  selectTerrainContinent(continent);
 }
 
 function closeContinentPanel() {

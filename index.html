@@ -7,7 +7,7 @@
       name="description"
       content="使用 Three.js 与 Natural Earth 数据构建的可交互三维地球"
     />
-    <title>海错图项目 v1.5</title>
+    <title>海错图项目 v1.6</title>
     <link rel="stylesheet" href="/src/style.css" />
     <script type="importmap">
       {
@@ -23,7 +23,7 @@
         <p class="eyebrow">THREE.JS LAB</p>
         <h1>海错图</h1>
         <p class="description">
-          拖动旋转地球，滚轮缩放。可通过右侧图层面板控制大陆与真实经纬网。
+          点击大陆按需加载真实 DEM 地形，并通过右侧面板控制地形与等高线。
         </p>
         <div class="actions">
           <button id="toggle-rotation" type="button">暂停自转</button>
@@ -43,6 +43,19 @@
         <p class="eyebrow">MAP LAYERS</p>
         <h2 id="layer-panel-title">图层显示</h2>
         <div id="layer-options" class="layer-options"></div>
+        <p id="terrain-status" class="terrain-status">
+          选择一个大陆以加载地形
+        </p>
+        <p class="data-credit">
+          DEM:
+          <a
+            href="https://registry.opendata.aws/terrain-tiles/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Mapzen Terrain Tiles / AWS Open Data
+          </a>
+        </p>
       </aside>
 
       <aside
@@ -74,6 +87,10 @@
           <div>
             <dt>主要特征</dt>
             <dd id="continent-feature"></dd>
+          </div>
+          <div>
+            <dt>地形数据</dt>
+            <dd id="continent-terrain-status">点击大陆后按需加载</dd>
           </div>
         </dl>
       </aside>
