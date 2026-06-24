@@ -134,6 +134,29 @@ const CONTOUR_LEVELS = [200, 500, 1000, 2000, 3000, 5000];
 const LAND_TEXTURE_WIDTH = 4096;
 const LAND_TEXTURE_HEIGHT = 2048;
 
+function createHighlightTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 96;
+  canvas.height = 96;
+  const context = canvas.getContext('2d');
+  const gradient = context.createRadialGradient(48, 48, 4, 48, 48, 44);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  gradient.addColorStop(0.35, 'rgba(103, 232, 249, 0.55)');
+  gradient.addColorStop(1, 'rgba(103, 232, 249, 0)');
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 96, 96);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const landHighlightMaterial = new THREE.SpriteMaterial({
+  map: createHighlightTexture(),
+  transparent: true,
+  opacity: 0.78,
+  depthWrite: false,
+});
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020815);
 scene.fog = new THREE.FogExp2(0x020815, 0.035);
@@ -340,7 +363,7 @@ function getFeaturePolygons(feature) {
   return [];
 }
 
-function renderLandTexture(highlightedContinent = null) {
+function renderLandTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = LAND_TEXTURE_WIDTH;
   canvas.height = LAND_TEXTURE_HEIGHT;
@@ -350,13 +373,8 @@ function renderLandTexture(highlightedContinent = null) {
   for (const continent of continents) {
     const features = continentFeaturesById.get(continent.id) ?? [];
     const baseColor = new THREE.Color(continent.color);
-    const color =
-      highlightedContinent?.id === continent.id
-        ? baseColor.clone().lerp(new THREE.Color(0xffffff), 0.24)
-        : baseColor;
+    const color = baseColor.clone().lerp(new THREE.Color(0xffffff), 0.2);
     context.fillStyle = `#${color.getHexString()}`;
-    context.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-    context.lineWidth = highlightedContinent?.id === continent.id ? 2 : 1;
 
     context.beginPath();
     for (const feature of features) {
@@ -367,7 +385,6 @@ function renderLandTexture(highlightedContinent = null) {
       }
     }
     context.fill('evenodd');
-    context.stroke();
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -377,9 +394,9 @@ function renderLandTexture(highlightedContinent = null) {
   return texture;
 }
 
-function updateLandTexture(highlightedContinent = null) {
+function updateLandTexture() {
   const previousTexture = landOverlay.material.map;
-  landOverlay.material.map = renderLandTexture(highlightedContinent);
+  landOverlay.material.map = renderLandTexture();
   landOverlay.material.needsUpdate = true;
   previousTexture?.dispose();
 }
@@ -556,6 +573,10 @@ const continentAnchors = [];
 const continentFeaturesById = new Map();
 const continentLayer = new THREE.Group();
 globeGroup.add(continentLayer);
+const landHighlight = new THREE.Sprite(landHighlightMaterial);
+landHighlight.visible = false;
+landHighlight.scale.set(0.13, 0.13, 1);
+continentLayer.add(landHighlight);
 const terrainLayer = new THREE.Group();
 globeGroup.add(terrainLayer);
 const contourLayer = new THREE.Group();
@@ -580,7 +601,7 @@ const layerDefinitions = [
     onChange(visible) {
       if (!visible) closeContinentPanel();
       hoveredSurface = null;
-      updateLandTexture();
+      landHighlight.visible = false;
     },
   },
   {
@@ -798,18 +819,39 @@ function pointInContinent(longitude, latitude, features) {
   });
 }
 
+function normalizeContinentHit(continent, latitude, longitude) {
+  if (!continent) return null;
+
+  if (latitude <= -60) {
+    return continents.find((item) => item.id === 'antarctica') ?? continent;
+  }
+
+  if (continent.id === 'antarctica') return null;
+
+  if (
+    continent.id === 'europe' &&
+    longitude >= 60 &&
+    latitude >= 35
+  ) {
+    return continents.find((item) => item.id === 'asia') ?? continent;
+  }
+
+  return continent;
+}
+
 function getContinentAtCoordinates(latitude, longitude) {
   if (!continentSurfacesReady || !layerState.continents) return null;
 
-  return (
+  const rawHit =
     continents.find((continent) =>
       pointInContinent(
         longitude,
         latitude,
         continentFeaturesById.get(continent.id) ?? []
       )
-    ) ?? null
-  );
+    ) ?? null;
+
+  return normalizeContinentHit(rawHit, latitude, longitude);
 }
 
 function getPointerGeoPosition() {
@@ -820,7 +862,7 @@ function getPointerGeoPosition() {
   const point = globeGroup.worldToLocal(hit.point.clone()).normalize();
   const latitude = THREE.MathUtils.radToDeg(Math.asin(point.y));
   const longitude = THREE.MathUtils.radToDeg(
-    Math.atan2(point.z, -point.x)
+    Math.atan2(-point.z, point.x)
   );
   return { latitude, longitude };
 }
@@ -1403,11 +1445,19 @@ function updateSurfaceHover() {
   if (hoveredSurface === nextSurface) return;
 
   hoveredSurface = nextSurface;
-  updateLandTexture(hoveredSurface);
 
   if (hoveredSurface) {
+    landHighlight.position.copy(
+      latLonToVector3(
+        hoveredSurface.latitude,
+        hoveredSurface.longitude,
+        1.535
+      )
+    );
+    landHighlight.visible = true;
     renderer.domElement.style.cursor = 'pointer';
   } else {
+    landHighlight.visible = false;
     renderer.domElement.style.cursor = dragState.active ? 'grabbing' : 'grab';
   }
 }
@@ -1452,7 +1502,7 @@ renderer.domElement.addEventListener('pointerleave', () => {
   pointerDecimalOutput.textContent = '';
   if (hoveredSurface) {
     hoveredSurface = null;
-    updateLandTexture();
+    landHighlight.visible = false;
   }
 });
 
