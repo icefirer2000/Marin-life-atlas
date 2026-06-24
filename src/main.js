@@ -131,6 +131,8 @@ const EARTH_RADIUS_METERS = 6371000;
 const TERRAIN_BASE_RADIUS = 1.523;
 const TERRAIN_EXAGGERATION = 35;
 const CONTOUR_LEVELS = [200, 500, 1000, 2000, 3000, 5000];
+const LAND_TEXTURE_WIDTH = 4096;
+const LAND_TEXTURE_HEIGHT = 2048;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020815);
@@ -183,6 +185,17 @@ const earth = new THREE.Mesh(
   })
 );
 globeGroup.add(earth);
+
+const landOverlay = new THREE.Mesh(
+  new THREE.SphereGeometry(1.508, 128, 64),
+  new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.92,
+    depthWrite: false,
+  })
+);
+landOverlay.visible = false;
+globeGroup.add(landOverlay);
 
 const atmosphere = new THREE.Mesh(
   new THREE.SphereGeometry(1.57, 64, 32),
@@ -286,6 +299,89 @@ function cleanAndUnwrapRing(ring, referenceLongitude = ring[0][0]) {
     previousLongitude = longitude;
     return new THREE.Vector2(longitude, latitude);
   });
+}
+
+function longitudeToTextureX(longitude) {
+  return ((longitude + 180) / 360) * LAND_TEXTURE_WIDTH;
+}
+
+function latitudeToTextureY(latitude) {
+  return ((90 - latitude) / 180) * LAND_TEXTURE_HEIGHT;
+}
+
+function drawRingPath(context, ring, longitudeOffset = 0) {
+  ring.forEach(([rawLongitude, latitude], index) => {
+    const longitude = rawLongitude + longitudeOffset;
+    const x = longitudeToTextureX(longitude);
+    const y = latitudeToTextureY(latitude);
+
+    if (index === 0) {
+      context.moveTo(x, y);
+    } else {
+      context.lineTo(x, y);
+    }
+  });
+  context.closePath();
+}
+
+function drawPolygonPath(context, polygon, longitudeOffset = 0) {
+  for (const ring of polygon) {
+    if (ring.length < 4) continue;
+    drawRingPath(context, ring, longitudeOffset);
+  }
+}
+
+function getFeaturePolygons(feature) {
+  const geometry = feature.geometry;
+  if (!geometry) return [];
+
+  if (geometry.type === 'Polygon') return [geometry.coordinates];
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates;
+  return [];
+}
+
+function renderLandTexture(highlightedContinent = null) {
+  const canvas = document.createElement('canvas');
+  canvas.width = LAND_TEXTURE_WIDTH;
+  canvas.height = LAND_TEXTURE_HEIGHT;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (const continent of continents) {
+    const features = continentFeaturesById.get(continent.id) ?? [];
+    const baseColor = new THREE.Color(continent.color);
+    const color =
+      highlightedContinent?.id === continent.id
+        ? baseColor.clone().lerp(new THREE.Color(0xffffff), 0.24)
+        : baseColor;
+    context.fillStyle = `#${color.getHexString()}`;
+    context.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    context.lineWidth = highlightedContinent?.id === continent.id ? 2 : 1;
+
+    context.beginPath();
+    for (const feature of features) {
+      for (const polygon of getFeaturePolygons(feature)) {
+        drawPolygonPath(context, polygon);
+        drawPolygonPath(context, polygon, -360);
+        drawPolygonPath(context, polygon, 360);
+      }
+    }
+    context.fill('evenodd');
+    context.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function updateLandTexture(highlightedContinent = null) {
+  const previousTexture = landOverlay.material.map;
+  landOverlay.material.map = renderLandTexture(highlightedContinent);
+  landOverlay.material.needsUpdate = true;
+  previousTexture?.dispose();
 }
 
 const MAX_SURFACE_EDGE_ANGLE = THREE.MathUtils.degToRad(2);
@@ -456,7 +552,6 @@ function createContinentSurface(continent, features) {
   return mesh;
 }
 
-const continentSurfaces = [];
 const continentAnchors = [];
 const continentFeaturesById = new Map();
 const continentLayer = new THREE.Group();
@@ -480,10 +575,12 @@ const layerState = {
 const layerDefinitions = [
   {
     id: 'continents',
-    label: '大陆模型',
-    target: continentLayer,
+    label: '大陆底图',
+    target: landOverlay,
     onChange(visible) {
       if (!visible) closeContinentPanel();
+      hoveredSurface = null;
+      updateLandTexture();
     },
   },
   {
@@ -563,7 +660,7 @@ for (const continent of continents) {
 }
 
 async function loadContinentSurfaces() {
-  pointerOutput.textContent = '正在生成大陆模型...';
+  pointerOutput.textContent = '正在生成大陆底图...';
 
   let geojson = globalThis.__CONTINENT_GEOJSON__;
 
@@ -595,11 +692,10 @@ async function loadContinentSurfaces() {
         feature.properties?.CONTINENT === continent.sourceName
     );
     continentFeaturesById.set(continent.id, features);
-    const surface = createContinentSurface(continent, features);
-    continentSurfaces.push(surface);
-    continentLayer.add(surface);
   }
 
+  updateLandTexture();
+  landOverlay.visible = layerState.continents;
   continentSurfacesReady = true;
   pointerOutput.textContent = '尚未选中球面';
   pointerDecimalOutput.textContent = '';
@@ -607,7 +703,7 @@ async function loadContinentSurfaces() {
 
 loadContinentSurfaces().catch((error) => {
   console.error(error);
-  pointerOutput.textContent = '大陆模型加载失败，请检查数据文件';
+  pointerOutput.textContent = '大陆底图生成失败，请检查数据文件';
   pointerDecimalOutput.textContent = '';
 });
 
@@ -700,6 +796,33 @@ function pointInContinent(longitude, latitude, features) {
       pointInPolygon(longitude, latitude, polygon)
     );
   });
+}
+
+function getContinentAtCoordinates(latitude, longitude) {
+  if (!continentSurfacesReady || !layerState.continents) return null;
+
+  return (
+    continents.find((continent) =>
+      pointInContinent(
+        longitude,
+        latitude,
+        continentFeaturesById.get(continent.id) ?? []
+      )
+    ) ?? null
+  );
+}
+
+function getPointerGeoPosition() {
+  const hit = raycaster.intersectObject(earth)[0];
+
+  if (!hit) return null;
+
+  const point = globeGroup.worldToLocal(hit.point.clone()).normalize();
+  const latitude = THREE.MathUtils.radToDeg(Math.asin(point.y));
+  const longitude = THREE.MathUtils.radToDeg(
+    Math.atan2(point.z, -point.x)
+  );
+  return { latitude, longitude };
 }
 
 function longitudeToTileX(longitude, zoom) {
@@ -1253,19 +1376,15 @@ function formatDms(value, positiveDirection, negativeDirection) {
 }
 
 function updateCoordinateOutput() {
-  const hit = raycaster.intersectObject(earth)[0];
+  const geoPosition = getPointerGeoPosition();
 
-  if (!hit) {
+  if (!geoPosition) {
     pointerOutput.textContent = '尚未选中球面';
     pointerDecimalOutput.textContent = '';
     return;
   }
 
-  const point = globeGroup.worldToLocal(hit.point.clone()).normalize();
-  const latitude = THREE.MathUtils.radToDeg(Math.asin(point.y));
-  const longitude = THREE.MathUtils.radToDeg(
-    Math.atan2(point.z, -point.x)
-  );
+  const { latitude, longitude } = geoPosition;
   pointerOutput.textContent = `${formatDms(latitude, '北纬', '南纬')}，${formatDms(longitude, '东经', '西经')}`;
   pointerDecimalOutput.textContent =
     `${Math.abs(latitude).toFixed(4)}° ${latitude >= 0 ? 'N' : 'S'}  /  ` +
@@ -1273,26 +1392,20 @@ function updateCoordinateOutput() {
 }
 
 function updateSurfaceHover() {
-  const hit = layerState.continents
-    ? raycaster.intersectObjects(continentSurfaces)[0]
+  const geoPosition = getPointerGeoPosition();
+  const nextSurface = geoPosition
+    ? getContinentAtCoordinates(
+        geoPosition.latitude,
+        geoPosition.longitude
+      )
     : null;
-  const nextSurface = hit?.object ?? null;
 
   if (hoveredSurface === nextSurface) return;
 
-  if (hoveredSurface) {
-    hoveredSurface.material.emissiveIntensity =
-      hoveredSurface.userData.baseEmissiveIntensity;
-    hoveredSurface.material.color.copy(hoveredSurface.userData.baseColor);
-  }
-
   hoveredSurface = nextSurface;
+  updateLandTexture(hoveredSurface);
 
   if (hoveredSurface) {
-    hoveredSurface.material.emissiveIntensity = 0.48;
-    hoveredSurface.material.color
-      .copy(hoveredSurface.userData.baseColor)
-      .lerp(new THREE.Color(0xffffff), 0.18);
     renderer.domElement.style.cursor = 'pointer';
   } else {
     renderer.domElement.style.cursor = dragState.active ? 'grabbing' : 'grab';
@@ -1337,6 +1450,10 @@ renderer.domElement.addEventListener('pointerleave', () => {
   if (dragState.active) return;
   pointerOutput.textContent = '尚未选中球面';
   pointerDecimalOutput.textContent = '';
+  if (hoveredSurface) {
+    hoveredSurface = null;
+    updateLandTexture();
+  }
 });
 
 function stopDragging(event) {
@@ -1344,12 +1461,16 @@ function stopDragging(event) {
 
   if (dragState.totalDistance < 5) {
     setPointerFromEvent(event);
-    const surfaceHit = layerState.continents
-      ? raycaster.intersectObjects(continentSurfaces)[0]
+    const geoPosition = getPointerGeoPosition();
+    const continentHit = geoPosition
+      ? getContinentAtCoordinates(
+          geoPosition.latitude,
+          geoPosition.longitude
+        )
       : null;
 
-    if (surfaceHit) {
-      openContinentPanel(surfaceHit.object.userData.continent);
+    if (continentHit) {
+      openContinentPanel(continentHit);
     }
   }
 
