@@ -10,6 +10,7 @@ const pointerDecimalOutput = document.querySelector(
 const layerOptions = document.querySelector('#layer-options');
 const terrainStatus = document.querySelector('#terrain-status');
 const labelsContainer = document.querySelector('#continent-labels');
+const fishLabelsContainer = document.querySelector('#fish-labels');
 const continentPanel = document.querySelector('#continent-panel');
 const closePanelButton = document.querySelector('#close-continent-panel');
 const continentName = document.querySelector('#continent-name');
@@ -20,6 +21,30 @@ const continentFeature = document.querySelector('#continent-feature');
 const continentTerrainStatus = document.querySelector(
   '#continent-terrain-status'
 );
+const fishSpeciesSelect = document.querySelector('#fish-species-select');
+const fishControls = document.querySelector('.fish-controls');
+const fishYearSlider = document.querySelector('#fish-year-slider');
+const fishYearOutput = document.querySelector('#fish-year-output');
+const fishTrackStartSlider = document.querySelector(
+  '#fish-track-start-slider'
+);
+const fishTrackStartOutput = document.querySelector(
+  '#fish-track-start-output'
+);
+const fishTrackEndSlider = document.querySelector('#fish-track-end-slider');
+const fishTrackEndOutput = document.querySelector('#fish-track-end-output');
+const fishTrackControls = document.querySelectorAll('.fish-track-control');
+const fishStatus = document.querySelector('#fish-status');
+const fishPanel = document.querySelector('#fish-panel');
+const closeFishPanelButton = document.querySelector('#close-fish-panel');
+const fishIllustration = document.querySelector('#fish-illustration');
+const fishName = document.querySelector('#fish-name');
+const fishScientificName = document.querySelector('#fish-scientific-name');
+const fishSummary = document.querySelector('#fish-summary');
+const fishTaxonomy = document.querySelector('#fish-taxonomy');
+const fishHabitat = document.querySelector('#fish-habitat');
+const fishRecordDetail = document.querySelector('#fish-record-detail');
+const fishTrackDetail = document.querySelector('#fish-track-detail');
 
 const continents = [
   {
@@ -115,6 +140,114 @@ const continents = [
   },
 ];
 
+const fishSpecies = [
+  {
+    id: 'yellowfin-tuna',
+    name: '黄鳍金枪鱼',
+    scientificName: 'Thunnus albacares',
+    color: 0xffc857,
+    taxonomy: '硬骨鱼纲 / 鲭形目 / 鲭科',
+    habitat:
+      '主要活动于热带和亚热带外海上层水域，常与暖水锋面、上升流边缘和岛弧海域相关。',
+    summary:
+      '高速游泳的大洋性掠食鱼类，是全球金枪鱼渔业中的重要目标物种。其分布对海温、溶解氧和饵料鱼群变化敏感。',
+    sourceNote:
+      'v1.8 内置代表性年度栖息地节点；科研使用时应替换为 OBIS、GBIF、区域调查或标记放流数据。',
+    records: [
+      { year: 2000, latitude: -5, longitude: 150, region: '西太平洋暖池', evidence: '热带外海栖息节点' },
+      { year: 2005, latitude: -2, longitude: 175, region: '赤道中太平洋', evidence: '暖水锋面节点' },
+      { year: 2010, latitude: 6, longitude: -155, region: '中东太平洋', evidence: '岛弧外海节点' },
+      { year: 2015, latitude: 9, longitude: -110, region: '东太平洋上升流边缘', evidence: '生产力边缘节点' },
+      { year: 2020, latitude: 0, longitude: -35, region: '赤道大西洋', evidence: '跨洋分布节点' },
+      { year: 2024, latitude: -10, longitude: 75, region: '印度洋中部', evidence: '热带印度洋节点' },
+    ],
+  },
+  {
+    id: 'atlantic-cod',
+    name: '大西洋鳕',
+    scientificName: 'Gadus morhua',
+    color: 0x8edcff,
+    taxonomy: '硬骨鱼纲 / 鳕形目 / 鳕科',
+    habitat:
+      '偏好北大西洋大陆架冷水环境，常见于近底层、浅海银行和峡湾系统。',
+    summary:
+      '典型冷水底栖-近底层鱼类，历史上支撑北大西洋重要渔业。其分布边界与海温、底质和渔业压力关系密切。',
+    sourceNote:
+      'v1.8 内置代表性年度栖息地节点；真实趋势需使用 NOAA、ICES、OBIS 或区域调查序列校验。',
+    records: [
+      { year: 2000, latitude: 47, longitude: -52, region: '纽芬兰大陆架', evidence: '冷水大陆架节点' },
+      { year: 2005, latitude: 50, longitude: -45, region: '拉布拉多海边缘', evidence: '北移边缘节点' },
+      { year: 2010, latitude: 57, longitude: -7, region: '苏格兰以西海域', evidence: '东北大西洋节点' },
+      { year: 2015, latitude: 62, longitude: -4, region: '法罗-设得兰海槽', evidence: '高纬陆架节点' },
+      { year: 2020, latitude: 67, longitude: 18, region: '巴伦支海西南部', evidence: '北极边缘节点' },
+      { year: 2024, latitude: 70, longitude: 32, region: '巴伦支海东部', evidence: '高纬栖息节点' },
+    ],
+  },
+  {
+    id: 'blue-shark',
+    name: '蓝鲨',
+    scientificName: 'Prionace glauca',
+    color: 0x65c7ff,
+    taxonomy: '软骨鱼纲 / 真鲨目 / 真鲨科',
+    habitat:
+      '广布于温带和热带大洋表层至中层水域，常沿洋流边界、锋面和生产力带活动。',
+    summary:
+      '迁移能力强的大洋性鲨鱼，跨越洋盆尺度活动。其轨迹研究通常依赖卫星标记或声学遥测。',
+    sourceNote:
+      'v1.8 内置代表性年度节点；若接入遥测数据，可将当前轨迹线升级为真实个体迁徙路线。',
+    records: [
+      { year: 2000, latitude: 36, longitude: -45, region: '北大西洋中部', evidence: '大洋锋面节点' },
+      { year: 2005, latitude: 31, longitude: -25, region: '亚速尔外海', evidence: '环流边缘节点' },
+      { year: 2010, latitude: 24, longitude: -15, region: '加那利洋流区', evidence: '东边界流节点' },
+      { year: 2015, latitude: 18, longitude: -35, region: '热带北大西洋', evidence: '热带外海节点' },
+      { year: 2020, latitude: -22, longitude: -20, region: '南大西洋副热带环流', evidence: '跨赤道节点' },
+      { year: 2024, latitude: -35, longitude: 18, region: '南非西岸外海', evidence: '本格拉边缘节点' },
+    ],
+  },
+  {
+    id: 'whale-shark',
+    name: '鲸鲨',
+    scientificName: 'Rhincodon typus',
+    color: 0xb59cff,
+    taxonomy: '软骨鱼纲 / 须鲨目 / 鲸鲨科',
+    habitat:
+      '热带和亚热带海域滤食性大型鲨鱼，常出现在浮游生物暴发、珊瑚礁外缘和岛屿近海。',
+    summary:
+      '现生最大鱼类，以滤食浮游生物和小型 nekton 为主。季节性聚集常与生产力脉冲和繁殖事件相关。',
+    sourceNote:
+      'v1.8 内置代表性年度节点；真实迁移需接入卫星标记、照片识别或区域保护区监测资料。',
+    records: [
+      { year: 2000, latitude: 20, longitude: -87, region: '尤卡坦半岛外海', evidence: '季节性聚集节点' },
+      { year: 2005, latitude: 9, longitude: 120, region: '菲律宾群岛外海', evidence: '岛弧近海节点' },
+      { year: 2010, latitude: -8, longitude: 115, region: '印尼巽他群岛', evidence: '热带岛链节点' },
+      { year: 2015, latitude: -18, longitude: 118, region: '西澳宁格鲁海域', evidence: '珊瑚礁外缘节点' },
+      { year: 2020, latitude: -4, longitude: 39, region: '东非近海', evidence: '西印度洋节点' },
+      { year: 2024, latitude: 13, longitude: 51, region: '阿拉伯海', evidence: '高生产力节点' },
+    ],
+  },
+  {
+    id: 'pacific-sardine',
+    name: '太平洋沙丁鱼',
+    scientificName: 'Sardinops sagax',
+    color: 0x5bd6a2,
+    taxonomy: '硬骨鱼纲 / 鲱形目 / 鲱科',
+    habitat:
+      '常见于东太平洋沿岸上升流系统，受海温、浮游生物和年代际气候振荡影响明显。',
+    summary:
+      '小型群游性鱼类，是上升流生态系统中的关键饵料鱼。丰度和分布常呈现明显年代际波动。',
+    sourceNote:
+      'v1.8 内置代表性年度节点；真实分析应结合渔业调查、声学调查和海表环境数据。',
+    records: [
+      { year: 2000, latitude: 32, longitude: -118, region: '加利福尼亚湾口外海', evidence: '沿岸上升流节点' },
+      { year: 2005, latitude: 38, longitude: -124, region: '北加州外海', evidence: '北移沿岸节点' },
+      { year: 2010, latitude: 44, longitude: -125, region: '俄勒冈外海', evidence: '冷水边缘节点' },
+      { year: 2015, latitude: 36, longitude: -122, region: '蒙特雷湾外海', evidence: '中加州节点' },
+      { year: 2020, latitude: 29, longitude: -115, region: '下加利福尼亚外海', evidence: '南部沿岸节点' },
+      { year: 2024, latitude: 34, longitude: -120, region: '南加州湾曲', evidence: '当前沿岸节点' },
+    ],
+  },
+];
+
 const terrainBounds = {
   asia: { west: 25, east: 180, south: -10, north: 82 },
   africa: { west: -20, east: 55, south: -36, north: 38 },
@@ -133,6 +266,8 @@ const TERRAIN_EXAGGERATION = 35;
 const CONTOUR_LEVELS = [200, 500, 1000, 2000, 3000, 5000];
 const LAND_TEXTURE_WIDTH = 4096;
 const LAND_TEXTURE_HEIGHT = 2048;
+const FISH_MARKER_RADIUS = 1.565;
+const FISH_TRACK_RADIUS = 1.555;
 
 function createHighlightTexture() {
   const canvas = document.createElement('canvas');
@@ -197,17 +332,23 @@ scene.add(globeGroup);
 
 const earth = new THREE.Mesh(
   new THREE.SphereGeometry(1.5, 96, 64),
-  new THREE.MeshPhysicalMaterial({
-    color: 0x061c32,
-    roughness: 0.58,
-    metalness: 0,
-    clearcoat: 0.42,
-    clearcoatRoughness: 0.32,
-    emissive: 0x020b14,
-    emissiveIntensity: 0.35,
+  new THREE.MeshBasicMaterial({
+    color: 0x0d4f78,
   })
 );
 globeGroup.add(earth);
+
+const oceanRim = new THREE.Mesh(
+  new THREE.SphereGeometry(1.502, 96, 64),
+  new THREE.MeshBasicMaterial({
+    color: 0x1d9fd1,
+    transparent: true,
+    opacity: 0.18,
+    wireframe: true,
+    depthWrite: false,
+  })
+);
+globeGroup.add(oceanRim);
 
 const landOverlay = new THREE.Mesh(
   new THREE.SphereGeometry(1.508, 128, 64),
@@ -577,20 +718,31 @@ const landHighlight = new THREE.Sprite(landHighlightMaterial);
 landHighlight.visible = false;
 landHighlight.scale.set(0.13, 0.13, 1);
 continentLayer.add(landHighlight);
+const fishLayer = new THREE.Group();
+globeGroup.add(fishLayer);
+fishLayer.visible = false;
+const fishTrackLayer = new THREE.Group();
+globeGroup.add(fishTrackLayer);
+fishTrackLayer.visible = false;
 const terrainLayer = new THREE.Group();
 globeGroup.add(terrainLayer);
 const contourLayer = new THREE.Group();
 globeGroup.add(contourLayer);
 let continentSurfacesReady = false;
+let fishRecordsReady = false;
 let selectedTerrainContinent = null;
 let terrainLoadingContinentId = null;
 let terrainRequestId = 0;
 const layerState = {
   continents: true,
+  continentLabels: true,
   graticule: true,
+  fishAtlas: false,
+  fishRecords: true,
+  fishLabels: true,
+  fishTrack: true,
   terrain: false,
   contours: false,
-  naturalColors: false,
 };
 
 const layerDefinitions = [
@@ -605,9 +757,51 @@ const layerDefinitions = [
     },
   },
   {
+    id: 'continentLabels',
+    label: '大陆名称',
+    onChange() {
+      updateContinentLabels();
+    },
+  },
+  {
     id: 'graticule',
     label: '经纬度网格',
     target: graticule,
+  },
+  {
+    id: 'fishAtlas',
+    label: '鱼类图鉴',
+    onChange(visible) {
+      applyFishAtlasVisibility(visible);
+    },
+  },
+  {
+    id: 'fishRecords',
+    label: '鱼类节点',
+    target: fishLayer,
+    disabled: true,
+    onChange() {
+      closeFishPanel();
+      applyFishAtlasVisibility(layerState.fishAtlas);
+    },
+  },
+  {
+    id: 'fishLabels',
+    label: '鱼类名称',
+    disabled: true,
+    onChange() {
+      updateFishLabels();
+    },
+  },
+  {
+    id: 'fishTrack',
+    label: '分布轨迹',
+    target: fishTrackLayer,
+    disabled: true,
+    onChange() {
+      applyFishTrackControlVisibility();
+      applyFishAtlasVisibility(layerState.fishAtlas);
+    },
   },
   {
     id: 'terrain',
@@ -621,12 +815,6 @@ const layerDefinitions = [
     label: '等高线',
     meta: '等待地形',
     target: contourLayer,
-    disabled: true,
-  },
-  {
-    id: 'naturalColors',
-    label: '真实地形颜色',
-    meta: '后续版本',
     disabled: true,
   },
 ];
@@ -680,6 +868,442 @@ for (const continent of continents) {
   continent.anchor = anchor;
 }
 
+const fishYears = [
+  ...new Set(
+    fishSpecies.flatMap((species) =>
+      species.records.map((record) => record.year)
+    )
+  ),
+].sort((a, b) => a - b);
+const fishRecordMeshes = [];
+const fishMarkerGeometry = new THREE.IcosahedronGeometry(0.026, 2);
+let currentFishTrack = null;
+let hoveredFishMarker = null;
+
+for (const species of fishSpecies) {
+  const option = document.createElement('option');
+  option.value = species.id;
+  option.textContent = `${species.name} / ${species.scientificName}`;
+  fishSpeciesSelect.appendChild(option);
+}
+
+fishYearSlider.min = 0;
+fishYearSlider.max = fishYears.length - 1;
+fishYearSlider.step = 1;
+fishYearSlider.value = fishYears.length - 1;
+fishTrackStartSlider.min = 0;
+fishTrackStartSlider.max = fishYears.length - 1;
+fishTrackStartSlider.step = 1;
+fishTrackStartSlider.value = 0;
+fishTrackEndSlider.min = 0;
+fishTrackEndSlider.max = fishYears.length - 1;
+fishTrackEndSlider.step = 1;
+fishTrackEndSlider.value = fishYears.length - 1;
+
+function getSelectedFishSpecies() {
+  return (
+    fishSpecies.find((species) => species.id === fishSpeciesSelect.value) ??
+    fishSpecies[0]
+  );
+}
+
+function getSelectedFishYear() {
+  return fishYears[Number(fishYearSlider.value)] ?? fishYears.at(-1);
+}
+
+function getSelectedTrackStartYear() {
+  return fishYears[Number(fishTrackStartSlider.value)] ?? fishYears[0];
+}
+
+function getSelectedTrackEndYear() {
+  return fishYears[Number(fishTrackEndSlider.value)] ?? fishYears.at(-1);
+}
+
+function clearFishRecords() {
+  for (const mesh of fishRecordMeshes) {
+    mesh.userData.labelElement?.remove();
+    fishLayer.remove(mesh);
+    mesh.material.dispose();
+  }
+  fishRecordMeshes.length = 0;
+  hoveredFishMarker = null;
+}
+
+function clearFishTrack() {
+  if (!currentFishTrack) return;
+  fishTrackLayer.remove(currentFishTrack);
+  disposeObject(currentFishTrack);
+  currentFishTrack = null;
+}
+
+function createFishMarker(species, record) {
+  const material = new THREE.MeshStandardMaterial({
+    color: species.color,
+    emissive: species.color,
+    emissiveIntensity: 0.45,
+    roughness: 0.42,
+    metalness: 0.08,
+  });
+  const marker = new THREE.Mesh(fishMarkerGeometry, material);
+  marker.position.copy(
+    latLonToVector3(record.latitude, record.longitude, FISH_MARKER_RADIUS)
+  );
+  marker.userData.species = species;
+  marker.userData.record = record;
+
+  const label = document.createElement('span');
+  label.className = 'fish-label';
+  label.textContent = species.name;
+  fishLabelsContainer.appendChild(label);
+  marker.userData.labelElement = label;
+
+  return marker;
+}
+
+function updateFishStatus() {
+  if (!layerState.fishAtlas) {
+    fishStatus.textContent = '鱼类图鉴已关闭；开启后显示年度节点与轨迹';
+    return;
+  }
+
+  const selectedSpecies = getSelectedFishSpecies();
+  const year = getSelectedFishYear();
+  const visibleRecords = fishRecordMeshes.length;
+  const trackStart = getSelectedTrackStartYear();
+  const trackEnd = getSelectedTrackEndYear();
+  const trackStatus = layerState.fishTrack
+    ? `轨迹范围 ${trackStart}–${trackEnd}`
+    : '轨迹显示已关闭';
+  fishStatus.textContent =
+    `${year} 年显示 ${visibleRecords} 个鱼类节点；` +
+    `${selectedSpecies.name} ${trackStatus}`;
+}
+
+function updateFishRecords() {
+  clearFishRecords();
+
+  const year = getSelectedFishYear();
+  fishYearOutput.textContent = String(year);
+  fishRecordsReady = true;
+
+  if (!layerState.fishAtlas || !layerState.fishRecords) {
+    updateFishStatus();
+    return;
+  }
+
+  for (const species of fishSpecies) {
+    for (const record of species.records) {
+      if (record.year !== year) continue;
+      const marker = createFishMarker(species, record);
+      fishLayer.add(marker);
+      fishRecordMeshes.push(marker);
+    }
+  }
+
+  updateFishLabels();
+  updateFishStatus();
+}
+
+function createGreatCirclePoints(start, end, segments, radius) {
+  const startNormal = start.clone().normalize();
+  const endNormal = end.clone().normalize();
+  const points = [];
+
+  for (let index = 0; index <= segments; index += 1) {
+    const mix = index / segments;
+    points.push(
+      startNormal.clone().slerp(endNormal, mix).multiplyScalar(radius)
+    );
+  }
+
+  return points;
+}
+
+function vectorToGeoPosition(vector) {
+  const point = vector.clone().normalize();
+  return {
+    latitude: THREE.MathUtils.radToDeg(Math.asin(point.y)),
+    longitude: THREE.MathUtils.radToDeg(Math.atan2(-point.z, point.x)),
+  };
+}
+
+function getRawContinentAtCoordinates(latitude, longitude) {
+  if (!continentSurfacesReady) return null;
+
+  return (
+    continents.find((continent) =>
+      pointInContinent(
+        longitude,
+        latitude,
+        continentFeaturesById.get(continent.id) ?? []
+      )
+    ) ?? null
+  );
+}
+
+function countLandIntersections(points) {
+  if (!continentSurfacesReady) return 0;
+
+  let landHits = 0;
+  for (const point of points) {
+    const { latitude, longitude } = vectorToGeoPosition(point);
+    if (getRawContinentAtCoordinates(latitude, longitude)) landHits += 1;
+  }
+
+  return landHits;
+}
+
+function getTrackAngularLength(points) {
+  let total = 0;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const current = points[index].clone().normalize();
+    const next = points[index + 1].clone().normalize();
+    total += current.angleTo(next);
+  }
+
+  return total;
+}
+
+function createDetourWaypoint(start, end, direction) {
+  const startNormal = start.clone().normalize();
+  const endNormal = end.clone().normalize();
+  const midpoint = startNormal.clone().slerp(endNormal, 0.5).normalize();
+  const routeAxis = startNormal.clone().cross(endNormal);
+
+  if (routeAxis.lengthSq() < 0.000001) {
+    routeAxis.set(0, 1, 0);
+  } else {
+    routeAxis.normalize();
+  }
+
+  const sideAxis = routeAxis.clone().cross(midpoint).normalize();
+  return midpoint
+    .applyAxisAngle(sideAxis, THREE.MathUtils.degToRad(24 * direction))
+    .normalize()
+    .multiplyScalar(FISH_TRACK_RADIUS);
+}
+
+function createOceanAwareSegmentPoints(start, end) {
+  const directPoints = createGreatCirclePoints(start, end, 32, FISH_TRACK_RADIUS);
+  const directHits = countLandIntersections(directPoints);
+
+  if (directHits === 0) {
+    return {
+      points: directPoints,
+      usedDetour: false,
+      landHits: 0,
+    };
+  }
+
+  const candidates = [-1, 1].map((direction) => {
+    const waypoint = createDetourWaypoint(start, end, direction);
+    const firstLeg = createGreatCirclePoints(
+      start,
+      waypoint,
+      20,
+      FISH_TRACK_RADIUS
+    );
+    const secondLeg = createGreatCirclePoints(
+      waypoint,
+      end,
+      20,
+      FISH_TRACK_RADIUS
+    );
+    const points = [...firstLeg, ...secondLeg.slice(1)];
+    return {
+      points,
+      usedDetour: true,
+      landHits: countLandIntersections(points),
+      angularLength: getTrackAngularLength(points),
+    };
+  });
+
+  candidates.push({
+    points: directPoints,
+    usedDetour: false,
+    landHits: directHits,
+    angularLength: getTrackAngularLength(directPoints),
+  });
+
+  candidates.sort(
+    (a, b) => a.landHits - b.landHits || a.angularLength - b.angularLength
+  );
+
+  return candidates[0];
+}
+
+function createTrackArrow(points, color) {
+  if (points.length < 2) return null;
+
+  const end = points.at(-1);
+  const previous = points[Math.max(points.length - 7, 0)];
+  const direction = end.clone().sub(previous).normalize();
+  const origin = previous.clone();
+  return new THREE.ArrowHelper(
+    direction,
+    origin,
+    0.18,
+    color,
+    0.07,
+    0.045
+  );
+}
+
+function createTrackNode(record, color) {
+  const geometry = new THREE.SphereGeometry(0.018, 12, 8);
+  const material = new THREE.MeshBasicMaterial({ color });
+  const node = new THREE.Mesh(geometry, material);
+  node.position.copy(
+    latLonToVector3(record.latitude, record.longitude, FISH_TRACK_RADIUS + 0.003)
+  );
+  return node;
+}
+
+function getSpeciesRecordsInRange(species, startYear, endYear) {
+  return species.records
+    .filter(
+      (record) => record.year >= startYear && record.year <= endYear
+    )
+    .sort((a, b) => a.year - b.year);
+}
+
+function updateFishTrack() {
+  clearFishTrack();
+
+  const startYear = Math.min(
+    getSelectedTrackStartYear(),
+    getSelectedTrackEndYear()
+  );
+  const endYear = Math.max(
+    getSelectedTrackStartYear(),
+    getSelectedTrackEndYear()
+  );
+  fishTrackStartOutput.textContent = String(startYear);
+  fishTrackEndOutput.textContent = String(endYear);
+
+  if (!layerState.fishAtlas || !layerState.fishTrack) {
+    fishTrackDetail.textContent = layerState.fishTrack
+      ? '开启鱼类图鉴后可生成时间轨迹。'
+      : '分布轨迹已关闭。';
+    updateFishStatus();
+    return;
+  }
+
+  const species = getSelectedFishSpecies();
+  const records = getSpeciesRecordsInRange(species, startYear, endYear);
+
+  if (records.length < 2) {
+    fishTrackDetail.textContent = '当前时间段不足两个节点，无法生成轨迹。';
+    updateFishStatus();
+    return;
+  }
+
+  const trackGroup = new THREE.Group();
+  const points = [];
+  let detourCount = 0;
+
+  for (let index = 0; index < records.length - 1; index += 1) {
+    const current = records[index];
+    const next = records[index + 1];
+    const start = latLonToVector3(
+      current.latitude,
+      current.longitude,
+      FISH_TRACK_RADIUS
+    );
+    const end = latLonToVector3(
+      next.latitude,
+      next.longitude,
+      FISH_TRACK_RADIUS
+    );
+    const segmentResult = createOceanAwareSegmentPoints(start, end);
+    const segmentPoints = segmentResult.points;
+    if (segmentResult.usedDetour) detourCount += 1;
+    points.push(...(index === 0 ? segmentPoints : segmentPoints.slice(1)));
+  }
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: species.color,
+    transparent: true,
+    opacity: 0.9,
+  });
+  trackGroup.add(new THREE.Line(geometry, material));
+
+  const arrow = createTrackArrow(points, species.color);
+  if (arrow) trackGroup.add(arrow);
+
+  for (const record of records) {
+    trackGroup.add(createTrackNode(record, species.color));
+  }
+
+  currentFishTrack = trackGroup;
+  fishTrackLayer.add(currentFishTrack);
+  fishTrackLayer.visible = true;
+
+  const routingText =
+    detourCount > 0
+      ? `其中 ${detourCount} 段触发避陆绕行候选。`
+      : '所有区段使用大圆最短路径。';
+  fishTrackDetail.textContent =
+    `${species.name}：${startYear}–${endYear}，${records.length} 个年度栖息地节点；${routingText}`;
+  updateFishStatus();
+}
+
+function getFishIntersection() {
+  if (
+    !fishRecordsReady ||
+    !layerState.fishAtlas ||
+    !layerState.fishRecords
+  ) {
+    return null;
+  }
+  return raycaster.intersectObjects(fishRecordMeshes, false)[0] ?? null;
+}
+
+function openFishPanel(species, record) {
+  closeContinentPanel();
+  fishSpeciesSelect.value = species.id;
+  fishIllustration.style.setProperty(
+    '--fish-color',
+    `#${new THREE.Color(species.color).getHexString()}`
+  );
+  fishName.textContent = species.name;
+  fishScientificName.textContent = species.scientificName;
+  fishSummary.textContent = `${species.summary} ${species.sourceNote}`;
+  fishTaxonomy.textContent = species.taxonomy;
+  fishHabitat.textContent = species.habitat;
+  fishRecordDetail.textContent =
+    `${record.year} 年，${record.region}（${formatDms(record.latitude, '北纬', '南纬')}，${formatDms(record.longitude, '东经', '西经')}）：${record.evidence}`;
+  updateFishTrack();
+  fishPanel.classList.add('is-open');
+  fishPanel.setAttribute('aria-hidden', 'false');
+}
+
+function closeFishPanel() {
+  fishPanel.classList.remove('is-open');
+  fishPanel.setAttribute('aria-hidden', 'true');
+}
+
+closeFishPanelButton.addEventListener('click', closeFishPanel);
+
+fishSpeciesSelect.addEventListener('change', () => {
+  updateFishTrack();
+  updateFishStatus();
+});
+
+fishYearSlider.addEventListener('input', () => {
+  updateFishRecords();
+});
+
+fishTrackStartSlider.addEventListener('input', () => {
+  updateFishTrack();
+});
+
+fishTrackEndSlider.addEventListener('input', () => {
+  updateFishTrack();
+});
+
 async function loadContinentSurfaces() {
   pointerOutput.textContent = '正在生成大陆底图...';
 
@@ -718,6 +1342,7 @@ async function loadContinentSurfaces() {
   updateLandTexture();
   landOverlay.visible = layerState.continents;
   continentSurfacesReady = true;
+  if (layerState.fishAtlas && layerState.fishTrack) updateFishTrack();
   pointerOutput.textContent = '尚未选中球面';
   pointerDecimalOutput.textContent = '';
 }
@@ -743,6 +1368,44 @@ function setTerrainStatus(message, state = '') {
   terrainStatus.classList.toggle('is-loading', state === 'loading');
   terrainStatus.classList.toggle('is-error', state === 'error');
   continentTerrainStatus.textContent = message;
+}
+
+function applyFishTrackControlVisibility() {
+  const showTrackControls = layerState.fishAtlas && layerState.fishTrack;
+  fishControls.classList.toggle('has-track', showTrackControls);
+  for (const control of fishTrackControls) {
+    control.toggleAttribute('hidden', !showTrackControls);
+  }
+}
+
+function applyFishAtlasVisibility(enabled) {
+  const controlledLayerIds = ['fishRecords', 'fishLabels', 'fishTrack'];
+  fishControls.classList.toggle('is-disabled', !enabled);
+  applyFishTrackControlVisibility();
+
+  for (const id of controlledLayerIds) {
+    const layer = getLayerDefinition(id);
+    layer.input.disabled = !enabled;
+  }
+
+  fishSpeciesSelect.disabled = !enabled;
+  fishYearSlider.disabled = !enabled;
+  fishTrackStartSlider.disabled = !enabled || !layerState.fishTrack;
+  fishTrackEndSlider.disabled = !enabled || !layerState.fishTrack;
+  fishLayer.visible = enabled && layerState.fishRecords;
+  fishTrackLayer.visible = enabled && layerState.fishTrack;
+
+  if (!enabled) {
+    closeFishPanel();
+    hoveredFishMarker?.scale.setScalar(1);
+    hoveredFishMarker = null;
+    fishStatus.textContent = '鱼类图鉴已关闭；开启后显示年度节点与轨迹';
+    updateFishLabels();
+    return;
+  }
+
+  updateFishRecords();
+  updateFishTrack();
 }
 
 function disposeObject(object) {
@@ -1394,12 +2057,21 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const dragState = {
   active: false,
+  mode: null,
   pointerId: null,
   previousX: 0,
   previousY: 0,
   totalDistance: 0,
+  pendingFishMarker: null,
 };
 let hoveredSurface = null;
+
+function resetDragState() {
+  dragState.active = false;
+  dragState.mode = null;
+  dragState.pointerId = null;
+  dragState.pendingFishMarker = null;
+}
 
 function setPointerFromEvent(event) {
   const bounds = renderer.domElement.getBoundingClientRect();
@@ -1434,6 +2106,22 @@ function updateCoordinateOutput() {
 }
 
 function updateSurfaceHover() {
+  const fishHit = getFishIntersection();
+  const nextFishMarker = fishHit?.object ?? null;
+
+  if (hoveredFishMarker !== nextFishMarker) {
+    hoveredFishMarker?.scale.setScalar(1);
+    hoveredFishMarker = nextFishMarker;
+    hoveredFishMarker?.scale.setScalar(1.45);
+  }
+
+  if (hoveredFishMarker) {
+    hoveredSurface = null;
+    landHighlight.visible = false;
+    renderer.domElement.style.cursor = 'pointer';
+    return;
+  }
+
   const geoPosition = getPointerGeoPosition();
   const nextSurface = geoPosition
     ? getContinentAtCoordinates(
@@ -1465,12 +2153,16 @@ function updateSurfaceHover() {
 renderer.domElement.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
 
+  setPointerFromEvent(event);
+  const fishHit = getFishIntersection();
   dragState.active = true;
+  dragState.mode = fishHit ? 'fish' : 'globe';
   dragState.pointerId = event.pointerId;
   dragState.previousX = event.clientX;
   dragState.previousY = event.clientY;
   dragState.totalDistance = 0;
-  renderer.domElement.style.cursor = 'grabbing';
+  dragState.pendingFishMarker = fishHit?.object ?? null;
+  renderer.domElement.style.cursor = fishHit ? 'pointer' : 'grabbing';
   renderer.domElement.setPointerCapture(event.pointerId);
 });
 
@@ -1480,12 +2172,14 @@ renderer.domElement.addEventListener('pointermove', (event) => {
     const deltaY = event.clientY - dragState.previousY;
     dragState.totalDistance += Math.hypot(deltaX, deltaY);
 
-    globeGroup.rotation.y += deltaX * 0.006;
-    globeGroup.rotation.x = THREE.MathUtils.clamp(
-      globeGroup.rotation.x + deltaY * 0.006,
-      -Math.PI / 2,
-      Math.PI / 2
-    );
+    if (dragState.mode === 'globe') {
+      globeGroup.rotation.y += deltaX * 0.006;
+      globeGroup.rotation.x = THREE.MathUtils.clamp(
+        globeGroup.rotation.x + deltaY * 0.006,
+        -Math.PI / 2,
+        Math.PI / 2
+      );
+    }
 
     dragState.previousX = event.clientX;
     dragState.previousY = event.clientY;
@@ -1500,6 +2194,8 @@ renderer.domElement.addEventListener('pointerleave', () => {
   if (dragState.active) return;
   pointerOutput.textContent = '尚未选中球面';
   pointerDecimalOutput.textContent = '';
+  hoveredFishMarker?.scale.setScalar(1);
+  hoveredFishMarker = null;
   if (hoveredSurface) {
     hoveredSurface = null;
     landHighlight.visible = false;
@@ -1509,8 +2205,36 @@ renderer.domElement.addEventListener('pointerleave', () => {
 function stopDragging(event) {
   if (event.pointerId !== dragState.pointerId) return;
 
-  if (dragState.totalDistance < 5) {
+  if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+    renderer.domElement.releasePointerCapture(event.pointerId);
+  }
+
+  if (event.type === 'pointerup' && dragState.totalDistance < 5) {
     setPointerFromEvent(event);
+
+    if (dragState.mode === 'fish') {
+      const fishHit = getFishIntersection();
+      const marker = fishHit?.object ?? dragState.pendingFishMarker;
+      const { species, record } = marker?.userData ?? {};
+
+      if (species && record) {
+        openFishPanel(species, record);
+        resetDragState();
+        renderer.domElement.style.cursor = 'pointer';
+        return;
+      }
+    }
+
+    const fishHit = getFishIntersection();
+
+    if (fishHit) {
+      const { species, record } = fishHit.object.userData;
+      openFishPanel(species, record);
+      resetDragState();
+      renderer.domElement.style.cursor = 'pointer';
+      return;
+    }
+
     const geoPosition = getPointerGeoPosition();
     const continentHit = geoPosition
       ? getContinentAtCoordinates(
@@ -1524,8 +2248,7 @@ function stopDragging(event) {
     }
   }
 
-  dragState.active = false;
-  dragState.pointerId = null;
+  resetDragState();
   renderer.domElement.style.cursor = hoveredSurface ? 'pointer' : 'grab';
 }
 
@@ -1559,6 +2282,7 @@ resetButton.addEventListener('click', () => {
   camera.lookAt(0, 0, 0);
   globeGroup.rotation.set(0, 0, 0);
   closeContinentPanel();
+  closeFishPanel();
 });
 
 const clock = new THREE.Clock();
@@ -1584,6 +2308,7 @@ function updateContinentLabels() {
     continent.labelElement.classList.toggle(
       'is-visible',
       layerState.continents &&
+        layerState.continentLabels &&
         continentSurfacesReady &&
         isFrontFacing &&
         isOnScreen
@@ -1595,6 +2320,38 @@ function updateContinentLabels() {
   }
 }
 
+function updateFishLabels() {
+  camera.getWorldDirection(cameraDirection).negate();
+
+  for (const marker of fishRecordMeshes) {
+    marker.getWorldPosition(worldPosition);
+    worldNormal.copy(worldPosition).normalize();
+
+    const isFrontFacing = worldNormal.dot(cameraDirection) > 0.12;
+    projectedPosition.copy(worldPosition).project(camera);
+    const isOnScreen =
+      Math.abs(projectedPosition.x) <= 1.05 &&
+      Math.abs(projectedPosition.y) <= 1.05;
+    const label = marker.userData.labelElement;
+
+    label.classList.toggle(
+      'is-visible',
+      layerState.fishAtlas &&
+        layerState.fishRecords &&
+        layerState.fishLabels &&
+        fishLayer.visible &&
+        isFrontFacing &&
+        isOnScreen
+    );
+    label.style.left =
+      `${(projectedPosition.x * 0.5 + 0.5) * window.innerWidth}px`;
+    label.style.top =
+      `${(-projectedPosition.y * 0.5 + 0.5) * window.innerHeight}px`;
+  }
+}
+
+applyFishAtlasVisibility(layerState.fishAtlas);
+
 renderer.setAnimationLoop(() => {
   const deltaTime = Math.min(clock.getDelta(), 0.05);
 
@@ -1604,6 +2361,7 @@ renderer.setAnimationLoop(() => {
 
   stars.rotation.y += deltaTime * 0.003;
   updateContinentLabels();
+  updateFishLabels();
   renderer.render(scene, camera);
 });
 

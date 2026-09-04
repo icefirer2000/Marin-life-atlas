@@ -28,22 +28,23 @@ body {
 #scene {
   position: fixed;
   inset: 0;
+  z-index: 1;
 }
 
 canvas {
+  position: relative;
+  z-index: 1;
   display: block;
+  width: 100vw;
+  height: 100vh;
   touch-action: none;
   cursor: grab;
-}
-
-canvas:active {
-  cursor: grabbing;
 }
 
 .panel,
 .coordinates {
   position: fixed;
-  z-index: 1;
+  z-index: 10;
   border: 1px solid rgb(124 211 252 / 16%);
   background: rgb(3 15 30 / 66%);
   box-shadow: 0 18px 60px rgb(0 0 0 / 28%);
@@ -54,6 +55,8 @@ canvas:active {
   top: 24px;
   left: 24px;
   width: min(340px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   padding: 22px;
   border-radius: 20px;
 }
@@ -142,7 +145,7 @@ button:focus-visible {
 
 .layer-panel {
   position: fixed;
-  z-index: 3;
+  z-index: 20;
   top: 24px;
   right: 24px;
   width: min(260px, calc(100vw - 48px));
@@ -229,15 +232,17 @@ button:focus-visible {
   color: #7ab8d0;
 }
 
-.continent-labels {
+.continent-labels,
+.fish-labels {
   position: fixed;
-  z-index: 2;
+  z-index: 12;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
-.continent-label {
+.continent-label,
+.fish-label {
   position: absolute;
   padding: 5px 9px;
   border: 1px solid rgb(255 255 255 / 28%);
@@ -254,13 +259,92 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-.continent-label.is-visible {
+.fish-label {
+  border-color: rgb(56 189 248 / 34%);
+  color: #dff8ff;
+  background: rgb(5 35 56 / 88%);
+  font-size: 0.68rem;
+  transform: translate(-50%, 12px);
+}
+
+.continent-label.is-visible,
+.fish-label.is-visible {
   opacity: 1;
+}
+
+.fish-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(125 211 252 / 14%);
+}
+
+.fish-controls.is-disabled {
+  opacity: 0.52;
+}
+
+.fish-controls.is-disabled select,
+.fish-controls.is-disabled input {
+  cursor: not-allowed;
+}
+
+.fish-track-control {
+  display: none;
+}
+
+.fish-controls.has-track .fish-track-control {
+  display: grid;
+}
+
+.control-title {
+  margin: 0;
+  color: #67e8f9;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.control-field {
+  display: grid;
+  gap: 6px;
+  color: #b9d6e6;
+  font-size: 0.72rem;
+}
+
+.control-field strong {
+  color: #eefaff;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.control-field select,
+.control-field input[type="range"] {
+  width: 100%;
+}
+
+.control-field select {
+  min-height: 34px;
+  border: 1px solid rgb(125 211 252 / 22%);
+  border-radius: 10px;
+  color: #eaf9ff;
+  background: rgb(5 28 45 / 92%);
+}
+
+.control-field input[type="range"] {
+  accent-color: #38bdf8;
+}
+
+.fish-status {
+  margin: 0;
+  color: #86aabe;
+  font-size: 0.68rem;
+  line-height: 1.45;
 }
 
 .continent-panel {
   position: fixed;
-  z-index: 3;
+  z-index: 20;
   top: 24px;
   right: 308px;
   width: min(360px, calc(100vw - 48px));
@@ -278,24 +362,39 @@ button:focus-visible {
     transform 180ms ease;
 }
 
+.fish-panel {
+  position: relative;
+  display: none;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(125 211 252 / 16%);
+}
+
+.fish-panel.is-open {
+  display: block;
+}
+
 .continent-panel.is-open {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
 }
 
-.continent-panel h2 {
+.continent-panel h2,
+.fish-panel h2 {
   margin: 0;
   font-size: 2rem;
 }
 
-.continent-panel > p:not(.eyebrow) {
+.continent-panel > p:not(.eyebrow),
+.fish-panel > p:not(.eyebrow) {
   margin: 12px 0 20px;
   color: #bdd2df;
   line-height: 1.7;
 }
 
-.continent-panel__close {
+.continent-panel__close,
+.fish-panel__close {
   position: absolute;
   top: 14px;
   right: 14px;
@@ -303,6 +402,34 @@ button:focus-visible {
   min-height: 36px;
   padding: 0;
   font-size: 1.35rem;
+}
+
+.fish-panel__header {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fish-illustration {
+  width: 74px;
+  height: 48px;
+  border: 1px solid rgb(125 211 252 / 22%);
+  border-radius: 999px 60% 60% 999px;
+  background:
+    radial-gradient(circle at 72% 42%, rgb(255 255 255 / 92%) 0 4%, transparent 5%),
+    linear-gradient(135deg, var(--fish-color, #38bdf8), #031525 78%);
+  box-shadow:
+    inset -18px 0 24px rgb(0 0 0 / 26%),
+    0 14px 32px rgb(0 0 0 / 28%);
+}
+
+.scientific-name {
+  margin: 6px 0 0;
+  color: #8fb4c5;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
 }
 
 .continent-facts {
@@ -332,11 +459,16 @@ button:focus-visible {
   line-height: 1.5;
 }
 
+.fish-facts {
+  margin-top: 16px;
+}
+
 @media (max-width: 640px) {
   .panel {
     top: 14px;
     left: 14px;
     width: calc(100vw - 28px);
+    max-height: min(66vh, calc(100vh - 160px));
     padding: 17px;
   }
 
@@ -377,6 +509,10 @@ button:focus-visible {
   .layer-option__meta,
   .terrain-status,
   .data-credit {
+    display: none;
+  }
+
+  .fish-controls {
     display: none;
   }
 

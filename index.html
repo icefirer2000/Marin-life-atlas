@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="使用 Three.js 与 Natural Earth 数据构建的可交互三维地球"
+      content="使用 Three.js、Natural Earth 与鱼类时空档案构建的可交互三维地球"
     />
-    <title>海错图项目 v1.7.1</title>
+    <title>海错图项目 v1.9</title>
     <link rel="stylesheet" href="/src/style.css" />
     <script type="importmap">
       {
@@ -23,12 +23,55 @@
         <p class="eyebrow">THREE.JS LAB</p>
         <h1>海错图</h1>
         <p class="description">
-          真实大陆底图实时显示，点击大陆仍可查看信息并按需加载 DEM 地形。
+          真实大陆底图、鱼类图鉴与年度分布轨迹共同构成可交互的海洋生命地图。
         </p>
         <div class="actions">
           <button id="toggle-rotation" type="button">暂停自转</button>
           <button id="reset-camera" type="button">复位视角</button>
         </div>
+
+        <section
+          id="fish-panel"
+          class="fish-panel"
+          aria-live="polite"
+          aria-hidden="true"
+        >
+          <button
+            id="close-fish-panel"
+            class="fish-panel__close"
+            type="button"
+            aria-label="关闭鱼类图鉴"
+          >
+            ×
+          </button>
+          <p class="eyebrow">SPECIES ATLAS</p>
+          <div class="fish-panel__header">
+            <div id="fish-illustration" class="fish-illustration"></div>
+            <div>
+              <h2 id="fish-name">鱼类名称</h2>
+              <p id="fish-scientific-name" class="scientific-name"></p>
+            </div>
+          </div>
+          <p id="fish-summary"></p>
+          <dl class="continent-facts fish-facts">
+            <div>
+              <dt>分类</dt>
+              <dd id="fish-taxonomy"></dd>
+            </div>
+            <div>
+              <dt>栖息地</dt>
+              <dd id="fish-habitat"></dd>
+            </div>
+            <div>
+              <dt>当前记录</dt>
+              <dd id="fish-record-detail"></dd>
+            </div>
+            <div>
+              <dt>时间轨迹</dt>
+              <dd id="fish-track-detail"></dd>
+            </div>
+          </dl>
+        </section>
       </div>
 
       <div class="coordinates" aria-live="polite">
@@ -38,11 +81,55 @@
       </div>
 
       <div id="continent-labels" class="continent-labels"></div>
+      <div id="fish-labels" class="fish-labels"></div>
 
       <aside class="layer-panel" aria-labelledby="layer-panel-title">
         <p class="eyebrow">MAP LAYERS</p>
         <h2 id="layer-panel-title">图层显示</h2>
         <div id="layer-options" class="layer-options"></div>
+        <section class="fish-controls" aria-labelledby="fish-controls-title">
+          <p id="fish-controls-title" class="control-title">鱼类时间档案</p>
+          <label class="control-field">
+            <span>目标鱼类</span>
+            <select id="fish-species-select"></select>
+          </label>
+          <label class="control-field">
+            <span>显示年份 <strong id="fish-year-output">2024</strong></span>
+            <input
+              id="fish-year-slider"
+              type="range"
+              min="2000"
+              max="2024"
+              step="1"
+              value="2024"
+            />
+          </label>
+          <label class="control-field fish-track-control">
+            <span>轨迹起点 <strong id="fish-track-start-output">2000</strong></span>
+            <input
+              id="fish-track-start-slider"
+              type="range"
+              min="2000"
+              max="2024"
+              step="1"
+              value="2000"
+            />
+          </label>
+          <label class="control-field fish-track-control">
+            <span>轨迹终点 <strong id="fish-track-end-output">2024</strong></span>
+            <input
+              id="fish-track-end-slider"
+              type="range"
+              min="2000"
+              max="2024"
+              step="1"
+              value="2024"
+            />
+          </label>
+          <p id="fish-status" class="fish-status">
+            鱼类图鉴已关闭；开启后显示年度节点与轨迹
+          </p>
+        </section>
         <p id="terrain-status" class="terrain-status">
           选择一个大陆以加载地形
         </p>
